@@ -3,6 +3,12 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import PTN
+import logging
+
+# Configurar logging básico
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
@@ -13,6 +19,16 @@ app = Flask(__name__)
 JACKETT_URL = os.getenv("JACKETT_URL", "http://localhost:9117")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
+
+# Validaciones de seguridad de Entorno
+if not JACKETT_API_KEY:
+    logging.error(
+        "Crítico: JACKETT_API_KEY no encontrada en .env. Las búsquedas fallarán."
+    )
+if not TMDB_API_KEY:
+    logging.warning(
+        "Aviso: TMDB_API_KEY no encontrada. La aplicación funcionará pero NO descargará pósters ni información oficial de TMDB."
+    )
 
 
 def get_tmdb_info(query_title, year=None, is_tv=False):
@@ -281,4 +297,20 @@ def search():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    env = os.getenv("FLASK_ENV", "production")
+    if env == "development":
+        logging.info("Iniciando servidor en modo DESARROLLO (Flask)...")
+        app.run(debug=True, port=5000)
+    else:
+        try:
+            from waitress import serve
+
+            logging.info(
+                "Iniciando servidor en modo PRODUCCIÓN (Waitress) en el puerto 5000..."
+            )
+            serve(app, host="0.0.0.0", port=5000)
+        except ImportError:
+            logging.warning(
+                "Waitress no está instalado. Ejecutando con servidor de desarrollo (inseguro para pro)."
+            )
+            app.run(host="0.0.0.0", port=5000)

@@ -3,6 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="description" content="Media Tracker: Metabuscador de torrents integrado con TMDB." />
+    <meta property="og:title" content="Buscador de Alta Fidelidad | Media Tracker" />
+    <meta property="og:description" content="Descarga películas, series y documentales en la mejor calidad sin esperas." />
+    <!-- Miniatura Open Graph para redes sociales -->
+    <meta property="og:image" content="/assets/screenshot.png" />
+    <meta property="og:type" content="website" />
     <title>Buscador de Alta Fidelidad | Media Tracker</title>
     <!-- Tailwind CSS CDN with Plugins -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -197,6 +203,17 @@
                 step="0.5"
                 class="w-full bg-[#1a1d24] border border-white/10 text-white rounded-lg px-4 py-2 focus:ring-1 focus:ring-violet-500 outline-none"
               />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-400 mb-1"
+                >Filtro de Idioma Local</label
+              >
+              <div class="flex flex-wrap items-center gap-4 mt-2">
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langLatino" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Latino</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langCastellano" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Castellano</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langSub" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Sub</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langOtro" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Otros</label>
+              </div>
             </div>
           </div>
 
@@ -411,13 +428,28 @@
               return `<span class="px-2 py-1 flex-shrink-0 ${colorClass} text-[10px] font-bold rounded border lowercase inline-flex items-center" title="Soporte detectado en el título">${icon}${supportType}</span>`;
             };
 
+            const isLatino = document.getElementById("langLatino").checked;
+            const isCastellano = document.getElementById("langCastellano").checked;
+            const isSub = document.getElementById("langSub").checked;
+            const isOtro = document.getElementById("langOtro").checked;
+
             // data.results = [{"group_info": {...}, "torrents": [...]}]
             data.results.forEach((group) => {
               const info = group.group_info;
               const torrentsCount = group.torrents.length;
 
               let torrentsHTML = "";
+              let visibleCount = 0;
               group.torrents.forEach((t) => {
+                const support = t.spanish_support;
+                let show = false;
+                if (support === "Latino" && isLatino) show = true;
+                else if (support === "Castellano" && isCastellano) show = true;
+                else if (support === "Subtitulado" && isSub) show = true;
+                else if (!support && isOtro) show = true;
+
+                if (!show) return;
+                visibleCount++;
                 const badge = getQualityBadge(t.title);
                 const safeMagnet = t.magnet
                   ? t.magnet.replace(/'/g, "\\'")
@@ -464,6 +496,8 @@
                         `;
               });
 
+              if (visibleCount === 0) return;
+
               const posterImg = info.poster_url
                 ? `<img src="${info.poster_url}" alt="${info.title}" class="w-full h-[400px] object-cover object-top border-b border-white/10" loading="lazy">`
                 : `<div class="w-full h-[400px] bg-gradient-to-b from-gray-800 to-[#1a1d24] flex items-center justify-center border-b border-white/10">
@@ -481,7 +515,7 @@
                             
                             <details class="group/details mt-auto">
                                 <summary class="list-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-4 font-bold text-center transition-colors flex items-center justify-center gap-2">
-                                    <span class="text-violet-400">Ver ${torrentsCount} Torrents Disponibles</span>
+                                    <span class="text-violet-400">Ver ${visibleCount} Torrents Disponibles</span>
                                     <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform text-white"></i>
                                 </summary>
                                 <div class="mt-4 pt-4 border-t border-white/5">
