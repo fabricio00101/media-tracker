@@ -70,7 +70,7 @@ Necesitarás tener instalado y corriendo en tu equipo local:
 
 ## 📸 Capturas de Pantalla
 
-_(Añade aquí capturas de tu asombrosa interfaz)_
+![Página de Resultados de Media Tracker](assets/screenshot.png)
 
 ---
 
