@@ -85,6 +85,13 @@
           Explora la mejor calidad cinematográfica disponible. Sin esperas, solo
           fidelidad.
         </p>
+
+        <!-- Botón Top Favoritos -->
+        <div class="mt-8 flex justify-center">
+             <button id="openFavoritesBtn" class="bg-[#1a1d24] border border-white/5 hover:bg-[#252a35] hover:border-violet-500/50 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+                 <i class="fas fa-heart text-red-500"></i> Mi Colección Guardada
+             </button>
+        </div>
       </div>
     </header>
 
@@ -187,7 +194,7 @@
           </div>
 
           <div
-            class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"
+            class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4"
             id="advancedSettings"
             style="display: none"
           >
@@ -209,10 +216,19 @@
                 >Filtro de Idioma Local</label
               >
               <div class="flex flex-wrap items-center gap-4 mt-2">
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langLatino" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Latino</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langCastellano" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Castellano</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langSub" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Sub</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langOtro" checked class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Otros</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langLatino" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Latino</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langCastellano" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Castellano</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langSub" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Sub</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langOtro" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Otros</label>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-400 mb-1"
+                >Etiquetas Especiales</label
+              >
+              <div class="flex flex-wrap items-center gap-4 mt-2">
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHDR" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">1080p HDR</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHEVC" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">HEVC / x265</label>
               </div>
             </div>
           </div>
@@ -294,8 +310,79 @@
         <div id="resultsList" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Injected via JS -->
         </div>
+        
+        <!-- Paginación Manual para evitar trabas en el DOM -->
+        <div id="loadMoreContainer" class="hidden text-center mt-12">
+            <button id="loadMoreBtn" class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-8 py-4 rounded-xl font-bold transition-colors shadow-lg shadow-black/50">
+                <i class="fas fa-chevron-down mr-2"></i> Cargar Más Resultados
+            </button>
+        </div>
       </section>
     </main>
+
+    <!-- Modal de Favoritos -->
+    <div id="favoritesModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-[#13161d] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden m-4 transform scale-95 transition-transform duration-300" id="favoritesModalInner">
+            
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a1d24]">
+                <h2 class="text-2xl font-black text-white flex items-center gap-3">
+                    <i class="fas fa-heart text-red-500"></i> Mi Colección Guardada
+                </h2>
+                <button id="closeFavoritesBtn" class="text-gray-400 hover:text-white transition-colors p-2 cursor-pointer bg-white/5 hover:bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-grow custom-scrollbar">
+                <div id="favoritesList" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Inyectado via JS -->
+                </div>
+                <div id="emptyFavoritesMessage" class="hidden text-center py-12">
+                    <i class="fas fa-box-open text-6xl text-gray-700 mb-4 block"></i>
+                    <p class="text-gray-400 text-lg">Aún no has guardado ninguna obra en tu colección.</p>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Modal de Subtítulos -->
+    <div id="subtitlesModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-[#13161d] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden m-4 transform scale-95 transition-transform duration-300" id="subtitlesModalInner">
+            
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a1d24]">
+                <h2 class="text-2xl font-black text-white flex items-center gap-3" id="subtitlesModalTitle">
+                    <i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos
+                </h2>
+                <button id="closeSubtitlesBtn" class="text-gray-400 hover:text-white transition-colors p-2 cursor-pointer bg-white/5 hover:bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-grow custom-scrollbar relative">
+                <div id="subtitlesLoading" class="hidden absolute inset-0 bg-[#13161d]/80 flex flex-col items-center justify-center z-10">
+                    <i class="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
+                    <p class="text-gray-400">Buscando subtítulos...</p>
+                </div>
+                
+                <div id="subtitlesList" class="flex flex-col gap-3">
+                    <!-- Resultados via JS -->
+                </div>
+                <div id="emptySubtitlesMessage" class="hidden text-center py-12">
+                    <i class="fas fa-search-minus text-6xl text-gray-700 mb-4 block"></i>
+                    <p class="text-gray-400 text-lg">No se encontraron subtítulos en Español/Latino para esta obra.</p>
+                </div>
+                <div id="errorSubtitlesMessage" class="hidden text-center py-12 flex flex-col items-center">
+                    <i class="fas fa-exclamation-triangle text-6xl text-red-900 mb-4 block"></i>
+                    <p class="text-red-400 text-lg mb-4" id="errorSubtitlesText">Error al buscar subtítulos.</p>
+                    <a id="fallbackSubtitlesLink" href="#" target="_blank" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-bold border border-gray-600 transition-colors flex items-center justify-center gap-2 max-w-sm">
+                         <i class="fas fa-external-link-alt"></i> Buscar Manualmente en la Web
+                    </a>
+                </div>
+            </div>
+            
+        </div>
+    </div>
 
     <footer
       class="containter mx-auto px-4 py-8 border-t border-white/5 mt-auto text-center flex-shrink-0"
@@ -311,6 +398,209 @@
       const qualityInput = document.getElementById("quality_tag");
       const visibleMinSize = document.getElementById("visible_min_size");
       const hiddenMinSize = document.getElementById("min_size_gb");
+      
+      // ESTADO GLOBAL
+      let globalCurrentResults = [];
+      let globalRenderedCount = 0;
+      const RESULTS_PER_PAGE = 16;
+      let favorites = JSON.parse(localStorage.getItem('mt_favorites')) || [];
+
+      // Funciones de Favoritos
+      const saveFavorites = () => localStorage.setItem('mt_favorites', JSON.stringify(favorites));
+      
+      const toggleFavorite = (groupKey, groupInfoStr) => {
+          const groupInfo = JSON.parse(decodeURIComponent(groupInfoStr));
+          const idx = favorites.findIndex(f => f.key === groupKey);
+          
+          if (idx > -1) {
+              favorites.splice(idx, 1);
+          } else {
+              favorites.push({
+                  key: groupKey,
+                  info: groupInfo,
+                  added_at: new Date().toISOString()
+              });
+          }
+          saveFavorites();
+          renderFavorites();
+          
+          // Actualizar botón en el dom principal si existe
+          const btn = document.querySelector(`.fav-btn[data-key="${groupKey}"]`);
+          if(btn) updateFavBtnVisual(btn, idx === -1);
+      };
+      
+      const updateFavBtnVisual = (btn, isFav) => {
+          if(isFav) {
+              btn.innerHTML = '<i class="fas fa-heart"></i>';
+              btn.classList.add('text-red-500');
+              btn.classList.remove('text-gray-400');
+          } else {
+              btn.innerHTML = '<i class="far fa-heart"></i>';
+              btn.classList.remove('text-red-500');
+              btn.classList.add('text-gray-400');
+          }
+      };
+
+      const renderFavorites = () => {
+          const container = document.getElementById('favoritesList');
+          const emptyMsg = document.getElementById('emptyFavoritesMessage');
+          container.innerHTML = '';
+          
+          if (favorites.length === 0) {
+              emptyMsg.classList.remove('hidden');
+              return;
+          }
+          emptyMsg.classList.add('hidden');
+          
+          favorites.sort((a,b) => new Date(b.added_at) - new Date(a.added_at)).forEach(fav => {
+              const info = fav.info;
+              const posterImg = info.poster_url
+                ? `<img src="${info.poster_url}" alt="${info.title}" class="w-24 h-36 object-cover rounded-lg shadow-md flex-shrink-0">`
+                : `<div class="w-24 h-36 bg-gray-800 rounded-lg shadow-md flex-shrink-0 flex items-center justify-center"><i class="fas fa-film text-3xl text-gray-600"></i></div>`;
+                
+              const card = document.createElement('div');
+              card.className = "bg-[#252a35] rounded-xl p-4 border border-white/5 flex gap-4 items-start hover:border-violet-500/30 transition-colors";
+              card.innerHTML = `
+                  ${posterImg}
+                  <div class="flex flex-col flex-grow h-full">
+                      <div class="flex justify-between items-start mb-2">
+                           <h3 class="font-black text-white leading-tight text-lg">${info.title} <span class="text-gray-500 font-normal text-sm">(${info.year || "?"})</span></h3>
+                           <button onclick="toggleFavorite('${fav.key}', '${encodeURIComponent(JSON.stringify(info))}')" class="text-red-500 hover:text-red-400 p-2 ml-2 bg-white/5 rounded-lg transition-colors" title="Eliminar de favoritos">
+                               <i class="fas fa-trash-alt"></i>
+                           </button>
+                      </div>
+                      <p class="text-xs text-gray-400 line-clamp-3 mb-3">${info.overview}</p>
+                      
+                      <button onclick="document.getElementById('query').value='${info.title}'; document.getElementById('closeFavoritesBtn').click(); document.getElementById('searchBtn').click();" class="mt-auto bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition-all w-full flex items-center justify-center gap-2">
+                          <i class="fas fa-search"></i> Buscar Torrents
+                      </button>
+                  </div>
+              `;
+              container.appendChild(card);
+          });
+      };
+
+      // Control del Modal de Favoritos
+      const favModal = document.getElementById('favoritesModal');
+      const favModalInner = document.getElementById('favoritesModalInner');
+      
+      document.getElementById('openFavoritesBtn').addEventListener('click', () => {
+          renderFavorites();
+          favModal.classList.remove('hidden');
+          // Pequeño delay para animacion
+          setTimeout(() => {
+              favModal.classList.remove('opacity-0');
+              favModalInner.classList.remove('scale-95');
+          }, 10);
+      });
+      
+      document.getElementById('closeFavoritesBtn').addEventListener('click', () => {
+          favModal.classList.add('opacity-0');
+          favModalInner.classList.add('scale-95');
+          setTimeout(() => favModal.classList.add('hidden'), 300);
+      });
+      
+      // Cerrar modal clickeando afuera
+      favModal.addEventListener('click', (e) => {
+          if(e.target === favModal) document.getElementById('closeFavoritesBtn').click();
+      });
+
+      // Control del Modal de Subtítulos
+      const subModal = document.getElementById('subtitlesModal');
+      const subModalInner = document.getElementById('subtitlesModalInner');
+      
+      window.openSubtitlesModal = async (tmdbId, title) => {
+          document.getElementById('subtitlesModalTitle').innerHTML = `<i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos para "${title}"`;
+          document.getElementById('subtitlesList').innerHTML = '';
+          document.getElementById('emptySubtitlesMessage').classList.add('hidden');
+          document.getElementById('errorSubtitlesMessage').classList.add('hidden');
+          document.getElementById('subtitlesLoading').classList.remove('hidden');
+          
+          subModal.classList.remove('hidden');
+          setTimeout(() => {
+              subModal.classList.remove('opacity-0');
+              subModalInner.classList.remove('scale-95');
+          }, 10);
+          
+          try {
+              const res = await fetch(`/api/subtitles/search?tmdb_id=${tmdbId}`);
+              const data = await res.json();
+              if(!res.ok) throw new Error(data.error || "Error buscando subtítulos");
+              
+              document.getElementById('subtitlesLoading').classList.add('hidden');
+              
+              if(!data.data || data.data.length === 0) {
+                  document.getElementById('emptySubtitlesMessage').classList.remove('hidden');
+                  return;
+              }
+              
+              let html = '';
+              data.data.forEach(sub => {
+                  const attrs = sub.attributes;
+                  const lang = attrs.language === 'es' ? '🇪🇸 Castellano' : (attrs.language === 'es-mx' || attrs.language === 'es-la' ? '🇲🇽 Latino' : `🗨️ ${attrs.language}`);
+                  const fileName = attrs.files[0]?.file_name || 'Subtítulo';
+                  const fileId = attrs.files[0]?.file_id;
+                  const rating = attrs.ratings || 0;
+                  
+                  html += `
+                      <div class="bg-[#252a35] border border-white/5 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-blue-500/30 transition-colors">
+                          <div class="flex-grow overflow-hidden">
+                              <div class="flex items-center gap-3 mb-2">
+                                  <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-bold border border-white/10">${lang}</span>
+                                  <span class="text-xs text-yellow-500"><i class="fas fa-star"></i> ${rating}</span>
+                              </div>
+                              <p class="text-sm font-bold text-white break-all" title="${fileName}">${fileName}</p>
+                          </div>
+                          <button onclick="downloadSubtitle(${fileId}, this)" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 flex-shrink-0">
+                              <i class="fas fa-download"></i> Descargar
+                          </button>
+                      </div>
+                  `;
+              });
+              document.getElementById('subtitlesList').innerHTML = html;
+              
+          } catch(err) {
+              document.getElementById('subtitlesLoading').classList.add('hidden');
+              document.getElementById('errorSubtitlesText').textContent = err.message;
+              document.getElementById('fallbackSubtitlesLink').href = `https://www.opensubtitles.org/es/search/sublanguageid-spa,spl/imdbid-${tmdbId}`; // Aproximación, la web re-dirige a tmdb a veces, pero ayuda al usuario
+              document.getElementById('errorSubtitlesMessage').classList.remove('hidden');
+          }
+      };
+      
+      window.downloadSubtitle = async (fileId, btnEl) => {
+          const originalText = btnEl.innerHTML;
+          btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo...';
+          btnEl.disabled = true;
+          
+          try {
+              const res = await fetch(`/api/subtitles/download?file_id=${fileId}`);
+              const data = await res.json();
+              if(!res.ok) throw new Error(data.error || "Error obteniendo link");
+              
+              // Abrir en nueva pestaña o iniciar descarga
+              window.open(data.link, '_blank');
+              setTimeout(() => {
+                  btnEl.innerHTML = '<i class="fas fa-check text-green-400"></i> Listo';
+                  btnEl.classList.remove("bg-blue-600", "hover:bg-blue-500");
+                  btnEl.classList.add("bg-green-600/30", "text-green-400");
+              }, 1000);
+          } catch(err) {
+              alert(err.message);
+              btnEl.innerHTML = originalText;
+              btnEl.disabled = false;
+          }
+      };
+      
+      document.getElementById('closeSubtitlesBtn').addEventListener('click', () => {
+          subModal.classList.add('opacity-0');
+          subModalInner.classList.add('scale-95');
+          setTimeout(() => subModal.classList.add('hidden'), 300);
+      });
+      
+      // Cerrar modal clickeando afuera
+      subModal.addEventListener('click', (e) => {
+          if(e.target === subModal) document.getElementById('closeSubtitlesBtn').click();
+      });
 
       visibleMinSize.addEventListener(
         "input",
@@ -336,6 +626,8 @@
           const category =
             document.querySelector('input[name="category"]:checked')?.value ||
             "all";
+          const requireHdr = document.getElementById("filterHDR").checked;
+          const requireHevc = document.getElementById("filterHEVC").checked;
 
           const btnText = document.getElementById("btnText");
           const btnSpinner = document.getElementById("btnSpinner");
@@ -354,6 +646,32 @@
           resultsSection.classList.add("hidden");
           errorBox.classList.add("hidden");
           resultsList.innerHTML = "";
+          document.getElementById('loadMoreContainer').classList.add('hidden');
+          
+          // INIT VARS
+          globalCurrentResults = [];
+          globalRenderedCount = 0;
+
+          // Función con reintentos para lidiar con el Timeout de Cloudflare (504 o 502) en Jackett
+          const fetchWithRetry = async (url, retries = 2) => {
+              for (let i = 0; i <= retries; i++) {
+                  try {
+                      btnText.textContent = i > 0 ? `Reintentando (${i}/${retries})...` : "Buscando...";
+                      const response = await fetch(url);
+                      const data = await response.json();
+                      if (!response.ok) {
+                          if ((response.status === 504 || response.status === 502) && i < retries) {
+                              console.warn(`Intento ${i+1} fallido por Timeout. Reintentando...`);
+                              continue;
+                          }
+                          throw new Error(data.error || "Ocurrió un error en el servidor backend.");
+                      }
+                      return data;
+                  } catch (error) {
+                      if (i === retries) throw error;
+                  }
+              }
+          };
 
           try {
             const params = new URLSearchParams({
@@ -361,16 +679,11 @@
               min_size_gb: minSize,
               quality_tag: qualityTag,
               category: category,
+              hdr: requireHdr,
+              hevc: requireHevc,
             });
 
-            const response = await fetch(`/api/search?${params.toString()}`);
-            const data = await response.json();
-
-            if (!response.ok) {
-              throw new Error(
-                data.error || "Ocurrió un error en el servidor backend.",
-              );
-            }
+            const data = await fetchWithRetry(`/api/search?${params.toString()}`);
 
             if (data.results.length === 0) {
               throw new Error(
@@ -378,10 +691,7 @@
               );
             }
 
-            resultsCount.textContent = `${data.results.length} OBRAS ENCONTRADAS`;
-            resultsSection.classList.remove("hidden");
-
-            const fragment = document.createDocumentFragment();
+            let validGroups = [];
 
             const getQualityBadge = (title) => {
               const text = title.toLowerCase();
@@ -432,28 +742,32 @@
             const isCastellano = document.getElementById("langCastellano").checked;
             const isSub = document.getElementById("langSub").checked;
             const isOtro = document.getElementById("langOtro").checked;
+            
+            const noLanguageFilterApplied = !isLatino && !isCastellano && !isSub && !isOtro;
 
             // data.results = [{"group_info": {...}, "torrents": [...]}]
             data.results.forEach((group) => {
               const info = group.group_info;
-              const torrentsCount = group.torrents.length;
 
               let torrentsHTML = "";
               let visibleCount = 0;
               group.torrents.forEach((t) => {
                 const support = t.spanish_support;
                 let show = false;
-                if (support === "Latino" && isLatino) show = true;
-                else if (support === "Castellano" && isCastellano) show = true;
-                else if (support === "Subtitulado" && isSub) show = true;
-                else if (!support && isOtro) show = true;
+                
+                if (noLanguageFilterApplied) {
+                    show = true;
+                } else {
+                    if (support === "Latino" && isLatino) show = true;
+                    else if (support === "Castellano" && isCastellano) show = true;
+                    else if (support === "Subtitulado" && isSub) show = true;
+                    else if (!support && isOtro) show = true;
+                }
 
                 if (!show) return;
                 visibleCount++;
                 const badge = getQualityBadge(t.title);
-                const safeMagnet = t.magnet
-                  ? t.magnet.replace(/'/g, "\\'")
-                  : "";
+                const safeMagnet = t.magnet ? t.magnet.replace(/'/g, "\\'") : "";
 
                 const copyBtnHTML = t.magnet
                   ? `<button type="button" onclick="navigator.clipboard.writeText('${safeMagnet}').then(() => alert('¡Enlace Magnet copiado!'))" class="text-gray-400 hover:text-white transition-colors p-3 rounded-lg bg-white/5 hover:bg-violet-600/50" title="Copiar Magnet">
@@ -480,6 +794,7 @@
                                         ${t.quality !== "Desconocida" ? `<span class="px-2 py-1 bg-gray-700 flex-shrink-0 text-gray-300 text-[10px] rounded">${t.quality}</span>` : ""}
                                         ${t.codec ? `<span class="px-2 py-1 bg-gray-700 text-gray-300 flex-shrink-0 text-[10px] rounded">${t.codec}</span>` : ""}
                                         ${getSpanishBadge(t.spanish_support)}
+                                        ${t.audio_support ? `<span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border-cyan-500/20 flex-shrink-0 text-[10px] font-bold rounded border inline-flex items-center" title="Formato de audio detectado"><i class="fas fa-volume-up mr-1" aria-hidden="true"></i>${t.audio_support}</span>` : ""}
                                         <span class="text-blue-400 font-bold ml-auto flex-shrink-0">${t.size_gb} GB</span>
                                     </div>
                                     <p class="text-sm text-gray-400 mb-2 truncate" title="${t.title}">${t.title}</p>
@@ -496,38 +811,30 @@
                         `;
               });
 
-              if (visibleCount === 0) return;
-
-              const posterImg = info.poster_url
-                ? `<img src="${info.poster_url}" alt="${info.title}" class="w-full h-[400px] object-cover object-top border-b border-white/10" loading="lazy">`
-                : `<div class="w-full h-[400px] bg-gradient-to-b from-gray-800 to-[#1a1d24] flex items-center justify-center border-b border-white/10">
-                               <i class="fas fa-film text-6xl text-gray-600"></i>
-                           </div>`;
-
-              const card = document.createElement("div");
-              card.className = `movie-group-card group bg-[#1a1d24] border border-white/10 rounded-2xl overflow-hidden flex flex-col`;
-
-              card.innerHTML = `
-                        ${posterImg}
-                        <div class="p-6 flex flex-col flex-grow">
-                            <h3 class="text-2xl font-black text-white mb-2 leading-tight">${info.title} <span class="text-gray-500 font-normal">(${info.year || "?"})</span></h3>
-                            <p class="text-sm text-gray-400 mb-6 line-clamp-3" title="${info.overview}">${info.overview}</p>
-                            
-                            <details class="group/details mt-auto">
-                                <summary class="list-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-4 font-bold text-center transition-colors flex items-center justify-center gap-2">
-                                    <span class="text-violet-400">Ver ${visibleCount} Torrents Disponibles</span>
-                                    <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform text-white"></i>
-                                </summary>
-                                <div class="mt-4 pt-4 border-t border-white/5">
-                                    ${torrentsHTML}
-                                </div>
-                            </details>
-                        </div>
-                    `;
-              fragment.appendChild(card);
+              if (visibleCount > 0) {
+                 validGroups.push({
+                     info: info,
+                     visibleTorrentsHTML: torrentsHTML,
+                     visibleCount: visibleCount,
+                     groupKey: `fav_${info.title.replace(/\s+/g,'_')}_${info.year}`
+                 });
+              }
             });
 
-            resultsList.appendChild(fragment);
+            if (validGroups.length === 0) {
+              throw new Error(
+                "No se encontraron resultados tras aplicar los filtros locales de idioma (Intenta habilitar Otros, Latino, etc).",
+              );
+            }
+
+            globalCurrentResults = validGroups;
+            globalRenderedCount = 0;
+            resultsList.innerHTML = '';
+            
+            resultsCount.textContent = `${validGroups.length} OBRA${validGroups.length !== 1 ? 'S' : ''} ENCONTRADA${validGroups.length !== 1 ? 'S' : ''}`;
+            resultsSection.classList.remove("hidden");
+            
+            renderNextBatch();
           } catch (error) {
             errorMessage.textContent = error.message;
             errorBox.classList.remove("hidden");
@@ -538,6 +845,75 @@
             btnSpinner.classList.add("hidden");
           }
         });
+        
+        // FUNCIÓN DE RENDERIZADO POR LOTES (LAZY LOADING MANUAL)
+        function renderNextBatch() {
+            const fragment = document.createDocumentFragment();
+            const resultsList = document.getElementById("resultsList");
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
+            
+            const nextBatch = globalCurrentResults.slice(globalRenderedCount, globalRenderedCount + RESULTS_PER_PAGE);
+            
+            nextBatch.forEach((groupObj) => {
+               const { info, visibleTorrentsHTML, visibleCount, groupKey } = groupObj;
+               
+               const posterImg = info.poster_url
+                ? `<img src="${info.poster_url}" alt="${info.title}" class="w-full h-[400px] object-cover object-top border-b border-white/10" loading="lazy">`
+                : `<div class="w-full h-[400px] bg-gradient-to-b from-gray-800 to-[#1a1d24] flex items-center justify-center border-b border-white/10">
+                               <i class="fas fa-film text-6xl text-gray-600"></i>
+                           </div>`;
+
+              const card = document.createElement("div");
+              card.className = `movie-group-card group bg-[#1a1d24] border border-white/10 rounded-2xl overflow-hidden flex flex-col`;
+
+              const isFav = favorites.some(f => f.key === groupKey);
+              const favIcon = isFav ? '<i class="fas fa-heart"></i>' : '<i class="far fa-heart"></i>';
+              const favClass = isFav ? 'text-red-500' : 'text-gray-400';
+
+              card.innerHTML = `
+                        <div class="relative group/poster">
+                            ${posterImg}
+                            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover/poster:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                <button type="button" class="fav-btn ${favClass} bg-white/10 hover:bg-white/20 p-4 rounded-full text-3xl transition-all transform hover:scale-110 shadow-2xl" data-key="${groupKey}" onclick="toggleFavorite('${groupKey}', '${encodeURIComponent(JSON.stringify(info))}')" title="Guardar / Quitar Favorito">
+                                    ${favIcon}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6 flex flex-col flex-grow">
+                            <h3 class="text-2xl font-black text-white mb-2 leading-tight">${info.title} <span class="text-gray-500 font-normal">(${info.year || "?"})</span></h3>
+                            <p class="text-sm text-gray-400 mb-6 line-clamp-3" title="${info.overview}">${info.overview}</p>
+                            
+                            <div class="flex gap-2 mt-auto mb-4">
+                                <button type="button" onclick="openSubtitlesModal('${info.id}', '${info.title.replace(/'/g, "\\'")}')" class="bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                                    <i class="fas fa-closed-captioning"></i> Buscar Subtítulos
+                                </button>
+                            </div>
+
+                            <details class="group/details">
+                                <summary class="list-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-4 font-bold text-center transition-colors flex items-center justify-center gap-2">
+                                    <span class="text-violet-400">Ver ${visibleCount} Torrents Disponibles</span>
+                                    <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform text-white"></i>
+                                </summary>
+                                <div class="mt-4 pt-4 border-t border-white/5">
+                                    ${visibleTorrentsHTML}
+                                </div>
+                            </details>
+                        </div>
+                    `;
+              fragment.appendChild(card);
+            });
+            
+            resultsList.appendChild(fragment);
+            globalRenderedCount += nextBatch.length;
+            
+            if (globalRenderedCount >= globalCurrentResults.length) {
+                loadMoreContainer.classList.add('hidden');
+            } else {
+                loadMoreContainer.classList.remove('hidden');
+            }
+        }
+        
+        document.getElementById('loadMoreBtn').addEventListener('click', renderNextBatch);
     </script>
   </body>
 </html>

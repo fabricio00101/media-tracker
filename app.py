@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, render_template, request, jsonify
+from flask_caching import Cache
 from dotenv import load_dotenv
 import PTN
 import logging
@@ -15,10 +16,18 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Configuración de Caché (Simple en memoria, ideal para 1 trabajador en Windows)
+cache = Cache(config={"CACHE_TYPE": "SimpleCache", "CACHE_DEFAULT_TIMEOUT": 300})
+cache.init_app(app)
+
 # Configuración base
 JACKETT_URL = os.getenv("JACKETT_URL", "http://localhost:9117")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
-TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
+
+OPENSUBTITLES_API_KEY = os.getenv("OPENSUBTITLES_API_KEY", "")
+OPENSUBTITLES_USER = os.getenv("OPENSUBTITLES_USER", "")
+OPENSUBTITLES_PASSWORD = os.getenv("OPENSUBTITLES_PASSWORD", "").strip()
 
 # Validaciones de seguridad de Entorno
 if not JACKETT_API_KEY:
@@ -31,6 +40,7 @@ if not TMDB_API_KEY:
     )
 
 
+@cache.memoize(timeout=86400)  # Cachear resultados de TMDB por 24 horas
 def get_tmdb_info(query_title, year=None, is_tv=False):
     if not TMDB_API_KEY:
         return None
@@ -81,6 +91,9 @@ def index():
 
 
 @app.route("/api/search")
+@cache.cached(
+    timeout=300, query_string=True
+)  # Cachear resultados de búsqueda por 5 minutos, considerando los parámetros GET
 def search():
     query = request.args.get("query", "").strip()
     category = request.args.get("category", "all").strip().lower()
@@ -91,6 +104,8 @@ def search():
         min_size_gb = 15.0
 
     quality_tag = request.args.get("quality_tag", "").strip().lower()
+    require_hdr = request.args.get("hdr", "false").lower() == "true"
+    require_hevc = request.args.get("hevc", "false").lower() == "true"
 
     if not JACKETT_API_KEY:
         return (
@@ -156,12 +171,21 @@ def search():
         if size_gb < min_size_gb:
             continue
 
-        if quality_tag and quality_tag not in title.lower():
+        title_lower = title.lower()
+
+        if quality_tag and quality_tag not in title_lower:
+            continue
+
+        if require_hdr and "hdr" not in title_lower:
+            continue
+
+        if require_hevc and not any(
+            tag in title_lower for tag in ["hevc", "x265", "h265", "h.265"]
+        ):
             continue
 
         magnet = item.get("MagnetUri") or item.get("Link")
 
-        title_lower = title.lower()
         spanish_support = None
 
         if any(
@@ -203,6 +227,20 @@ def search():
             for tag in ["subs", "subtitulado", "vose", "multi-sub", "sub español"]
         ):
             spanish_support = "Subtitulado"
+
+        audio_support = None
+        if any(tag in title_lower for tag in ["atmos", "truehd", "true-hd"]):
+            audio_support = "Dolby Atmos / TrueHD"
+        elif any(tag in title_lower for tag in ["dts-hd", "dts:x", "dts-x", "dtshd"]):
+            audio_support = "DTS-HD / X"
+        elif any(tag in title_lower for tag in ["eac3", "ddp5.1", "ddp", "dd+"]):
+            audio_support = "Dolby Digital Plus"
+        elif any(tag in title_lower for tag in ["dd5.1", "dolby", "ac3"]):
+            audio_support = "Dolby Digital"
+        elif any(tag in title_lower for tag in ["dts"]):
+            audio_support = "DTS"
+        elif any(tag in title_lower for tag in ["aac"]):
+            audio_support = "AAC"
 
         # Parsear con PTN para agrupar
         parsed = PTN.parse(title)
@@ -269,6 +307,7 @@ def search():
                 "tracker": item.get("Tracker", "Desconocido"),
                 "magnet": magnet,
                 "spanish_support": spanish_support,
+                "audio_support": audio_support,
                 "quality": parsed.get("resolution", "Desconocida"),
                 "codec": parsed.get("codec", ""),
                 "season": parsed.get("season"),
@@ -296,11 +335,117 @@ def search():
     return jsonify({"results": final_results})
 
 
+@cache.memoize(timeout=86000)
+def get_opensubtitles_token(api_key, user, password):
+    if not api_key or not user or not password:
+        return None
+    url = "https://api.opensubtitles.com/api/v1/login"
+    headers = {
+        "Api-Key": api_key,
+        "User-Agent": "RastreadorTorrents/1.0",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {"username": user, "password": password}
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("token")
+    except Exception as e:
+        logging.error(f"Error autenticando con OpenSubtitles: {e}")
+        return None
+
+
+@app.route("/api/subtitles/search")
+@cache.cached(timeout=3600, query_string=True)
+def search_subtitles():
+    tmdb_id = request.args.get("tmdb_id")
+    if not tmdb_id:
+        return jsonify({"error": "Se requiere un TMDB ID"}), 400
+
+    if not OPENSUBTITLES_API_KEY:
+        return (
+            jsonify(
+                {"error": "API Key de OpenSubtitles no configurada en el servidor"}
+            ),
+            401,
+        )
+
+    url = "https://api.opensubtitles.com/api/v1/subtitles"
+    params = {"tmdb_id": tmdb_id, "languages": "es,es-mx"}
+
+    headers = {
+        "Api-Key": OPENSUBTITLES_API_KEY,
+        "User-Agent": "RastreadorTorrents/1.0",
+        "Accept": "application/json",
+    }
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            return jsonify({"error": "API Key de OpenSubtitles inválida"}), 401
+        elif e.response.status_code == 429:
+            return (
+                jsonify({"error": "Límite de peticiones de OpenSubtitles excedido"}),
+                429,
+            )
+        return jsonify({"error": f"Error de OpenSubtitles: {e}"}), 500
+    except Exception as e:
+        logging.error(f"Error al buscar subtitulos: {e}")
+        return jsonify({"error": "Error interno al buscar subtitulos"}), 500
+
+
+@app.route("/api/subtitles/download")
+def download_subtitle():
+    file_id = request.args.get("file_id")
+    if not file_id:
+        return jsonify({"error": "file_id is required"}), 400
+
+    token = get_opensubtitles_token(
+        OPENSUBTITLES_API_KEY, OPENSUBTITLES_USER, OPENSUBTITLES_PASSWORD
+    )
+    if not token:
+        return (
+            jsonify(
+                {
+                    "error": "No se pudo autenticar con OpenSubtitles. Revisa las credenciales USER y PASSWORD en .env"
+                }
+            ),
+            401,
+        )
+
+    url = "https://api.opensubtitles.com/api/v1/download"
+    headers = {
+        "Api-Key": OPENSUBTITLES_API_KEY,
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "RastreadorTorrents/1.0",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {"file_id": int(file_id)}
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return jsonify({"link": data.get("link")})
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 406:
+            return jsonify({"error": "Límite de descargas excedido de tu cuenta"}), 406
+        return jsonify({"error": f"Error al descargar: {e}"}), 500
+    except Exception as e:
+        logging.error(f"Error al obtener link de descarga: {e}")
+        return jsonify({"error": "Error interno al obtener link de descarga"}), 500
+
+
 if __name__ == "__main__":
     env = os.getenv("FLASK_ENV", "production")
     if env == "development":
         logging.info("Iniciando servidor en modo DESARROLLO (Flask)...")
-        app.run(debug=True, port=5000)
+        app.run(host="0.0.0.0", debug=True, port=5000)
     else:
         try:
             from waitress import serve
