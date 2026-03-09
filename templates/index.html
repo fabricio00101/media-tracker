@@ -775,10 +775,10 @@
                             </button>`
                   : "";
 
-                const downloadBtnHTML = t.magnet
-                  ? `<a href="${t.magnet}" class="bg-violet-600 hover:bg-violet-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
-                                <i class="fas fa-magnet"></i> Descargar
-                            </a>`
+                const delugeBtnHTML = t.magnet
+                  ? `<button type="button" onclick="sendToDeluge('${safeMagnet}', this)" class="bg-violet-600 hover:bg-violet-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center group/deluge">
+                                <i class="fas fa-cloud-download-alt"></i> <span class="btn-text">Enviar a Deluge</span>
+                            </button>`
                   : `<span class="text-xs text-gray-500">Sin link</span>`;
 
                 const fullSeasonBadge = t.is_full_season
@@ -805,7 +805,7 @@
                                 </div>
                                 <div class="flex items-center w-full xl:w-auto gap-2 mt-2 xl:mt-0">
                                     ${copyBtnHTML}
-                                    ${downloadBtnHTML}
+                                    ${delugeBtnHTML}
                                 </div>
                             </div>
                         `;
@@ -914,6 +914,50 @@
         }
         
         document.getElementById('loadMoreBtn').addEventListener('click', renderNextBatch);
+
+        // Función RPC Enviar a Deluge Remoto
+        async function sendToDeluge(magnetUrl, btnElement) {
+            const originalHTML = btnElement.innerHTML;
+            const originalClasses = btnElement.className;
+            const textSpan = btnElement.querySelector('.btn-text');
+            const icon = btnElement.querySelector('i');
+            
+            icon.className = 'fas fa-spinner fa-spin';
+            textSpan.textContent = 'Enviando...';
+            btnElement.disabled = true;
+            btnElement.classList.add('opacity-75', 'cursor-not-allowed');
+
+            try {
+                const res = await fetch('/api/deluge/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ magnet: magnetUrl })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Ocurrió un error de red o de clave incorrecta.');
+                }
+
+                // Éxito: Pintar botón de Verde temporalmente
+                btnElement.innerHTML = '<i class="fas fa-check"></i> <span class="btn-text">Añadido!</span>';
+                btnElement.className = 'bg-emerald-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
+                
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.className = originalClasses;
+                    btnElement.disabled = false;
+                    btnElement.classList.remove('opacity-75', 'cursor-not-allowed');
+                }, 4000);
+
+            } catch (error) {
+                alert("Error interactuando con Deluge:\n" + error.message);
+                btnElement.innerHTML = originalHTML;
+                btnElement.disabled = false;
+                btnElement.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
     </script>
   </body>
 </html>

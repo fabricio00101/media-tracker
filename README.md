@@ -1,6 +1,6 @@
 # Media Tracker - Buscador de Alta Fidelidad
 
-Una aplicación web ultrarrápida y estéticamente premium diseñada para entusiastas del cine y las series. Funciona como un metabuscador que se conecta a tu instancia local de [Jackett](https://github.com/Jackett/Jackett) para rastrear y filtrar enlaces Torrent (Películas, Series y Documentales) ofreciendo los resultados de manera unificada, inteligente y visualmente atractiva con integración a TMDB.
+Una aplicación web ultrarrápida y estéticamente premium diseñada para entusiastas del cine y las series. Funciona como un metabuscador que se conecta a tu instancia local de [Prowlarr](https://github.com/Prowlarr/Prowlarr) para rastrear y filtrar enlaces Torrent (Películas, Series y Documentales) ofreciendo los resultados de manera unificada, inteligente y visualmente atractiva con integración a TMDB.
 
 ## ✨ Características Principales
 
@@ -17,7 +17,7 @@ Una aplicación web ultrarrápida y estéticamente premium diseñada para entusi
 Necesitarás tener instalado y corriendo en tu equipo local:
 
 - Python 3.10 o superior.
-- [Jackett](https://github.com/Jackett/Jackett) (Corriendo por defecto en el puerto `9117`).
+- [Prowlarr](https://github.com/Prowlarr/Prowlarr) (Corriendo por defecto en el puerto `9696`).
 - _(Opcional pero Recomendado)_ [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) para acceder a indexadores protegidos por Cloudflare como 1337x.
 
 ## 🛠 Instalación y Uso
@@ -47,18 +47,18 @@ Necesitarás tener instalado y corriendo en tu equipo local:
    Renombra el archivo `.env.example` a `.env` (si existe, o simplemente crea `.env`) en la carpeta raíz, e ingresa tus credenciales:
 
    ```env
-   # URL de Jackett. Cambiar solo si no corre en local.
-   JACKETT_URL=http://localhost:9117
+   # URL de Prowlarr. Cambiar solo si no corre en local.
+   PROWLARR_URL=http://localhost:9696
 
-   # Tu llave de API de Jackett (Puedes verla en la web de Jackett arriba a la derecha).
-   JACKETT_API_KEY=tu_api_key_de_jackett
+   # Tu llave de API de Prowlarr (Puedes verla en la web de Prowlarr en Settings > General).
+   PROWLARR_API_KEY=tu_api_key_de_prowlarr
 
    # [Opcional] API Key de The Movie Database para obtener Posteres. Obtener en: https://www.themoviedb.org/settings/api
    TMDB_API_KEY=tu_api_key_de_tmdb_aca
    ```
 
-5. **Ajustes Adicionales de Jackett (Recomendado):**
-   - Asegúrate de subir el valor de **Timeout** genérico en la configuración de Jackett si empleas _FlareSolverr_ (ejemplo a `150` o `55000` ms).
+5. **Ajustes Adicionales de Prowlarr (Recomendado):**
+   - Asegúrate de asignar FlareSolverr como proxy en Prowlarr desde _Settings > Indexers_, en caso de indexadores caidos o bloqueados por CF.
 
 6. **Ejecutar el Servidor Web:**
 
