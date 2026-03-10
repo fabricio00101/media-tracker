@@ -470,7 +470,7 @@ def add_to_deluge():
     login_payload = {"method": "auth.login", "params": [DELUGE_PASSWORD], "id": 1}
 
     try:
-        login_res = session.post(json_rpc_url, json=login_payload, timeout=5)
+        login_res = session.post(json_rpc_url, json=login_payload, timeout=10)
         login_res.raise_for_status()
         login_data = login_res.json()
 
@@ -529,7 +529,7 @@ def add_to_deluge():
                     500,
                 )
 
-        add_res = session.post(json_rpc_url, json=add_payload, timeout=5)
+        add_res = session.post(json_rpc_url, json=add_payload, timeout=10)
         add_res.raise_for_status()
         add_data = add_res.json()
 
