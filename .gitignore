@@ -35,6 +35,9 @@ wheels/
 .DS_Store
 Thumbs.db
 
+# Diseños
+designs/
+
 # IDEs y Editores
 .vscode/
 .idea/
