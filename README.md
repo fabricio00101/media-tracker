@@ -111,6 +111,19 @@ El ejecutable se genera en `dist/app.exe`.
 
 > **Importante:** el `.exe` lee las claves del archivo `.env` ubicado en el **directorio de trabajo** desde donde se ejecuta. Si lo lanzás desde `dist/`, colocá ahí tu `.env` (por ejemplo `dist/.env`).
 
+### Inicio con un solo clic (Windows)
+
+Hacé doble clic en `iniciar-media-tracker.bat`, en la raíz del proyecto. La estructura esperada es:
+
+```text
+Media-Tracker/
+├── dist/app.exe
+├── flaresolverr/flaresolverr.exe
+└── iniciar-media-tracker.bat
+```
+
+El lanzador usa rutas relativas, inicia FlareSolverr en una ventana propia con `LANG=en-US` y `LOG_LEVEL=info` (dejá esa ventana abierta para consultar los registros), espera a que `http://127.0.0.1:8191/` responda `FlareSolverr is ready!`, y recién después arranca `dist\app.exe`. Cuando `http://127.0.0.1:5000/` responde, abre el navegador. Si alguno de los dos servicios ya está ejecutándose, no inicia otra instancia.
+
 ## 📚 Endpoints de la API REST
 
 | Método | Endpoint | Parámetros Principales | Descripción |

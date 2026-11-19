@@ -584,3 +584,72 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - El historial y ordenamiento se resuelven del lado del cliente vía `LocalStorage` y arrays en memoria para velocidad instantánea sin añadir latencia de red ni carga de estado al servidor.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Lanzador único (Media Tracker + FlareSolverr)
+
+### Qué se completó
+- Creado `iniciar-media-tracker.bat` en la raíz del proyecto.
+- Verificada la estructura real antes de implementar: `dist\app.exe`, `flaresolverr\flaresolverr.exe` (carpeta en minúsculas) y el `.bat` previo `flaresolverr\iniciar-flaresolverr.bat`.
+- El lanzador detecta su ubicación con `%~dp0`, configura `LANG=en-US` y `LOG_LEVEL=info`, arranca FlareSolverr en ventana propia y espera al health check de `http://127.0.0.1:8191/` (exige HTTP 200 y el texto `FlareSolverr is ready!`).
+- Luego inicia `dist\app.exe`, espera a `http://127.0.0.1:5000/` y abre el navegador (la app no lo abría por sí sola; se confirmó que `app.py` no llama a `webbrowser`).
+- Evita duplicados comprobando proceso (`tasklist`) y puerto (`netstat`) antes de cada arranque; muestra mensajes de error claros y NO cierra la ventana ante fallos (`pause`).
+- README: nueva sección "Inicio con un solo clic (Windows)" con la estructura de carpetas y el flujo del lanzador.
+
+### Pruebas realizadas
+- 1.ª prueba: FlareSolverr levantó y respondió, pero Media Tracker agotó el tiempo de espera. Causa: `timeout /t` se saltea cuando la entrada está redirigida, por lo que el bucle de reintentos se consumía en milisegundos.
+- Corrección: reemplazado `timeout` por `ping -n 3 127.0.0.1 >nul` en el bucle de espera (independiente de la consola).
+- 2.ª prueba (arranque limpio): ambos servicios iniciados, health checks OK, navegador abierto, salida exitosa.
+- 3.ª prueba (servicios ya activos): detectó ambos procesos, no creó instancias nuevas y abrió el navegador igualmente.
+- Limpieza final: procesos terminados; solo queda un `TIME_WAIT` inofensivo en el puerto 5000.
+
+### Qué quedó pendiente
+- Nada de esta tarea. Sigue pendiente lo ya registrado: iniciar Prowlarr con indexers y asignarles el tag `flaresolverr`.
+
+### Decisiones tomadas
+- La carpeta real es `flaresolverr` (minúsculas), no `FlareSolverr`; se respetó para no romper rutas existentes.
+- Se usa `%~dp0` con una variable `ROOT` intermedia y `/D "%ROOT%."` para evitar problemas de comillas finales en `start`.
+- No se activó `LOG_HTML=true` (solo se usó en diagnóstico previo) y no se tocó la configuración de Prowlarr.
+- Se mantuvo `LOG_LEVEL=info` y se usó el endpoint raíz de FlareSolverr como health check, verificado en sesiones anteriores (`{"msg":"FlareSolverr is ready!"}`).
+- No se modificó código Python ni dependencias.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Rebuild de `dist/app.exe`
+
+### Qué se completó
+- Verificado que el ejecutable estaba desactualizado: `dist\app.exe` era de las 12:52 mientras las fuentes (Etapas 1–5 de la hoja de ruta) llegaban hasta las 16:32.
+- Recompilado con `python -m PyInstaller app.spec --noconfirm` (PyInstaller 6.22.3, Python 3.15.2). Nuevo `dist\app.exe`: 16.330.927 bytes, 16:55.
+- Prueba de humo del nuevo EXE contra `http://127.0.0.1:5000/`:
+  - `GET /` → 200, con `sortSelector` y la barra de búsquedas "Recientes"; cabecera `X-Content-Type-Options: nosniff` presente.
+  - `GET /static/js/app.js` → 200, con `mt_search_history` y `escapeHtml`, y **0 `onclick=`**.
+  - `GET /no-existe` → 404 con la página dinámica ("404 - No encontramos lo que buscas").
+  - `GET /api/no-existe` → 404 en JSON.
+  - `GET /api/search?query=test&category=invalido` → 400 con `error_detail` (`INVALID_CATEGORY`).
+- Procesos de prueba terminados (`taskkill /F /IM app.exe /T`).
+
+### Qué quedó pendiente
+- Nada de esta tarea.
+
+### Decisiones tomadas
+- Se recompiló usando el `app.spec` existente; no hizo falta agregar `hiddenimports` ni dependencias nuevas porque los módulos nuevos (`utils/*`, `services/*`) son importados desde `app.py` y PyInstaller los resolvió.
+- Se mantuvo `dist/app.exe` como artefacto ignorado por git: el cambio queda en el equipo, no en el repositorio.
+- `Start-Process` desde PowerShell no sirvió para la prueba de humo (el onefile no respondió); se validó ejecutando el EXE directamente desde la shell, que es el mismo escenario del doble clic.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Commit y push del lanzador
+
+### Qué se completó
+- Eliminados `instrucciones.md` y `media-tracker-hoja-de-ruta.md` (confirmado por el usuario); se conservan README.md, AGENTS.md y session_log.md.
+- Agregada regla `flaresolverr/` a `.gitignore`.
+- Commiteados: lanzador `.bat`, README, session_log, `.gitignore` y las dos borraciones. Pusheado a `origin/main`.
+
+### Qué quedó pendiente
+- Nada de esta tarea.
+
+### Decisiones tomadas
+- La carpeta `flaresolverr/` **no se versiona**: pesa ~842 MB y contiene dos archivos de 341 MB y 313 MB, por encima del límite de 100 MB por archivo de GitHub. Sigue siendo una instalación local, como cuando se instaló originalmente fuera del repositorio. El lanzador la requiere en la raíz del proyecto.
+- No se usó Git LFS porque no está configurado en el repo y consumes cuota; requiere decisión explícita.
+- `dist/app.exe` sigue ignorado (`dist/` en `.gitignore`), coherente con el resto de builds.
