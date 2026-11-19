@@ -301,12 +301,37 @@
         class="hidden pb-12"
         data-purpose="results-display"
       >
-        <h2
-          id="resultsCount"
-          class="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-6 ml-2"
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 mb-6 ml-2"
         >
-          OBRAS ENCONTRADAS (0)
-        </h2>
+          <h2
+            id="resultsCount"
+            class="text-gray-400 text-sm font-semibold uppercase tracking-wider"
+          >
+            OBRAS ENCONTRADAS (0)
+          </h2>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 uppercase tracking-wider mr-1 hidden sm:inline">
+              <i class="fas fa-download mr-1"></i> Exportar:
+            </span>
+            <button
+              type="button"
+              id="exportJsonBtn"
+              class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+              title="Descargar todos los resultados en formato JSON"
+            >
+              <i class="fas fa-file-code"></i> JSON
+            </button>
+            <button
+              type="button"
+              id="exportCsvBtn"
+              class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+              title="Descargar todos los resultados en formato CSV (Excel)"
+            >
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+          </div>
+        </div>
         <div id="resultsList" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Injected via JS -->
         </div>
