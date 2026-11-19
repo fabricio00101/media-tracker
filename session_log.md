@@ -287,7 +287,28 @@
 - **53 tests**, cobertura **77,07 %** (`--cov-fail-under=70` OK), `node --check` OK.
 
 ### Qué quedó pendiente
-- Commit y push (hay ~26 archivos sin commitear).
-- Ejecutar el workflow de CI real en GitHub.
+- ~~Commit y push~~ → **hecho**: 5 commits (`e57634d`, `87309f7`, `19ad91c`, `1355b16`, `96f8ee4`).
 - Cobertura de `services/subtitles.py` (22 %) y de las ramas de error de `routes/deluge.py` (68 %).
 - Soporte multilingüe ES/EN de la interfaz.
+- FlareSolverr: decidir autostart con Windows; asignar tag `flaresolverr` al agregar indexers en Prowlarr.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Commits, push y primer CI verde
+
+### Qué se completó
+- **Commits en 4 partes lógicas** (26 archivos), validando que el primero quedara en pie en solitario (suite con stash: 48 passed):
+  1. `e57634d` feat: Búsqueda robusta, seguridad y tests de regresión (13 archivos)
+  2. `87309f7` feat(frontend): XSS, exportación de resultados y UX de búsqueda (4)
+  3. `19ad91c` chore: Docker, CI con cobertura y empaquetado (7)
+  4. `1355b16` docs: Actualizar README y registro de sesiones (2)
+- **Push a `origin/main`** y **primer workflow de CI ejecutado con éxito** en la matriz 3.10 + 3.12 (53 tests, cobertura 77 %, artefactos `coverage-py3.10/12` subidos).
+- **Actions actualizadas a runtime Node 24** (`96f8ee4`): `checkout@v5`, `setup-python@v6`, `setup-node@v5`, `upload-artifact@v6` y `node-version: 24`. Motivo: Node 20 llegó a EOL en abril 2026 y GitHub lo removió de los runners en septiembre 2026; cada corrida mostraba la anotación *"Node.js 20 is deprecated"*. Tras el cambio, segunda corrida **verde y sin anotaciones**.
+
+### Decisiones
+- Commits separados por área (backend+tests / frontend / infra / docs) en vez de uno solo, para que cada uno sea utilizable y verificable.
+- Versiones de actions elegidas entre las confirmadas con `runs.using: node24` (evité tags no verificados).
+- No se agregó `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`: ya no es necesario con las actions actualizadas.
+
+### Resultado final de la sesión
+- 53 tests, cobertura 77,07 %, `node --check` OK, CI verde ×2, árbol limpio, `dist/app.exe` regenerado (15,56 MB).
