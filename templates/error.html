@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Error {{ code }} - Media Tracker</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0f1117;
+        color: #f3f4f6;
+      }
+      .hero-gradient {
+        background: radial-gradient(
+          circle at top,
+          rgba(139, 92, 246, 0.15) 0%,
+          rgba(15, 17, 23, 1) 70%
+        );
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <header class="relative pt-20 pb-12 hero-gradient overflow-hidden flex-shrink-0">
+      <div class="container mx-auto px-4 text-center">
+        <h1
+          class="text-5xl md:text-7xl font-extrabold tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400"
+        >
+          {{ title }}
+        </h1>
+        <p class="text-gray-400 text-lg md:text-xl font-light tracking-wide max-w-2xl mx-auto">
+          {{ description }}
+        </p>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 -mt-8 relative z-10 flex-grow">
+      <div class="max-w-2xl mx-auto bg-[#1a1d24] rounded-2xl p-12 border border-white/10 text-center">
+        <div class="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-8">
+          <i class="fas fa-exclamation-triangle text-5xl text-red-500"></i>
+        </div>
+        
+        <h2 class="text-3xl font-bold text-white mb-4">{{ subtitle }}</h2>
+        
+        <p class="text-gray-400 text-lg mb-8">
+          Revisa la dirección escrita o vuelve al inicio para seguir explorando.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+            <i class="fas fa-home"></i> Volver al Inicio
+          </a>
+          <button onclick="window.location.reload()" class="bg-[#252a35] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-8 py-3 rounded-xl font-bold transition-colors">
+            <i class="fas fa-redo mr-2"></i> Recargar Página
+          </button>
+        </div>
+        
+        <div class="mt-12 pt-8 border-t border-white/5">
+          <p class="text-gray-500 text-sm">Si el problema persiste, por favor contacta con el soporte técnico.</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="container mx-auto px-4 py-8 border-t border-white/5 mt-auto text-center flex-shrink-0">
+      <p class="text-gray-500 text-sm">
+        © 2026 Buscador de Alta Fidelidad. Diseñado para entusiastas del cine.
+      </p>
+    </footer>
+  </body>
+</html>

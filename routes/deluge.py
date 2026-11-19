@@ -1,12 +1,47 @@
 import base64
+import socket
 import requests
 import logging
+from urllib.parse import urljoin, urlparse
 from flask import Blueprint, request, jsonify
+from extensions import limiter
 import config
 
 deluge_bp = Blueprint("deluge", __name__)
 
+
+def _is_safe_remote_url(url):
+    """Valida que una URL remota sea descargable sin exponer SSRF.
+
+    Bloquea esquemas no web y destinos link-local (169.254.0.0/16 incluye
+    el endpoint de metadatos de AWS/GCP y 169.254.169.254) y 0.0.0.0/8.
+    Sigue permitiendo hosts privados porque ahí suele vivir Prowlarr.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        # Nombre no resoluble: no tiene sentido intentar descargarlo
+        return False
+
+    for info in infos:
+        ip = info[4][0]
+        if ip.startswith("169.254.") or ip.startswith("fe80:") or ip.startswith("0."):
+            logging.warning("URL bloqueada por SSRF (destino no permitido): %s", url)
+            return False
+
+    return True
+
+
 @deluge_bp.route("/api/deluge/add", methods=["POST"])
+@limiter.limit("10 per minute")
 def add_to_deluge():
     if not config.DELUGE_URL or not config.DELUGE_PASSWORD:
         return (
@@ -49,14 +84,31 @@ def add_to_deluge():
         else:
             try:
                 # Es un link HTTP a Prowlarr. Lo descargamos en RAM.
-                # Aumentamos el timeout y desactivamos la auto-redirección
+                if not _is_safe_remote_url(magnet_url):
+                    return (
+                        jsonify(
+                            {
+                                "error": "URL de descarga rechazada: el destino no está permitido."
+                            }
+                        ),
+                        400,
+                    )
+
                 t_res = requests.get(magnet_url, timeout=120, allow_redirects=False)
 
                 add_payload = None
 
                 # Prowlarr a veces devuelve un 302 Found redirigiendo a un Magnet Real.
                 if t_res.status_code in [301, 302, 303, 307, 308]:
-                    location = t_res.headers.get("Location", "")
+                    raw_location = t_res.headers.get("Location", "")
+                    if not raw_location:
+                        return (
+                            jsonify({"error": "Prowlarr devolvió una redirección sin destino."}),
+                            502,
+                        )
+                    # Normaliza también las redirecciones relativas
+                    location = urljoin(magnet_url, raw_location)
+
                     if location.lower().startswith("magnet:"):
                         add_payload = {
                             "method": "core.add_torrent_magnet",
@@ -65,6 +117,15 @@ def add_to_deluge():
                         }
                     else:
                         # Si redirige a otra web, la seguimos manualmente
+                        if not _is_safe_remote_url(location):
+                            return (
+                                jsonify(
+                                    {
+                                        "error": "Redirección rechazada: el destino no está permitido."
+                                    }
+                                ),
+                                400,
+                            )
                         t_res = requests.get(location, timeout=120)
                         t_res.raise_for_status()
 
