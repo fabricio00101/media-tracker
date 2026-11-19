@@ -55,6 +55,10 @@ Necesitarás tener instalado y corriendo en tu equipo local:
 
    # [Opcional] API Key de The Movie Database para obtener Posteres. Obtener en: https://www.themoviedb.org/settings/api
    TMDB_API_KEY=tu_api_key_de_tmdb_aca
+
+   # [Opcional] Redis para caché y rate-limiting persistentes.
+   # Si se deja vacío o Redis no responde, se usa almacenamiento en memoria.
+   REDIS_URL=
    ```
 
 5. **Ajustes Adicionales de Prowlarr (Recomendado):**
@@ -67,6 +71,33 @@ Necesitarás tener instalado y corriendo en tu equipo local:
    ```
 
 7. **A disfrutar:** ¡Abre tu navegador web y visita [http://localhost:5000](http://localhost:5000)!
+
+## 🐳 Despliegue con Docker (opcional)
+
+El proyecto incluye un `Dockerfile` y un `docker-compose.yml` listos para producción. El compose levanta la app con **Waitress multi-hilo** y un **Redis** para caché y rate-limiting persistentes.
+
+```bash
+# 1. Crear el .env con tus claves (Prowlarr, TMDB, etc.)
+cp .env.example .env
+
+# 2. Levantar app + Redis
+docker compose up -d --build
+```
+
+La aplicación quedará disponible en [http://localhost:5000](http://localhost:5000). Redis almacena el estado de caché y de los límites de peticiones, por lo que sobrevive a reinicios y funciona correctamente con múltiples hilos.
+
+## 🖥️ Ejecutable para Windows (PyInstaller)
+
+El proyecto puede empaquetarse como un único `app.exe` que incluye `templates`, `static` y `assets`.
+
+```bash
+pip install pyinstaller
+python -m PyInstaller app.spec --noconfirm
+```
+
+El ejecutable se genera en `dist/app.exe`.
+
+> **Importante:** el `.exe` lee las claves del archivo `.env` ubicado en el **directorio de trabajo** desde donde se ejecuta. Si lo lanzás desde `dist/`, colocá ahí tu `.env` (por ejemplo `dist/.env`).
 
 ## 📸 Capturas de Pantalla
 

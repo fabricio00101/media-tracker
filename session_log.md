@@ -26,3 +26,268 @@
 - Se optó por usar `flask-limiter` como la librería estándar para la rate-limitation.
 - Se implementó soporte de filtrado server-side de múltiples idiomas por medio de listas separadas por comas para preservar la capacidad del frontend de tener múltiples checkboxes seleccionados.
 - Se deshabilitó dinámicamente el backend del caché en entornos de pruebas usando `NullCache` en `conftest.py` y agregando un fixture `clear_cache` para prevenir colisión de estados entre tests paralelos.
+
+---
+
+## Sesión 2026-11-18 — Optimización y mejoras de UX
+
+### Qué se completó
+- **Limpieza de `requirements.txt`**: se eliminaron dependencias no usadas (Django, FastAPI, pandas, numpy, mysql-connector, psycopg2, etc.) dejando solo las necesarias.
+- **Entorno verificado**: dependencias instaladas y suite de tests ejecutada (7/7 passing).
+- **Timeout de Prowlarr** reducido de 160s a 30s en `routes/search.py`.
+- **Mejoras de bajo esfuerzo**:
+  - Barra de progreso global durante las búsquedas.
+  - Búsqueda en tiempo real con debounce (1200 ms, mínimo 4 caracteres) y cancelación de búsquedas previas vía `AbortController` + número de secuencia.
+  - Página de error dedicada (`templates/error.html`) con handlers 404/500 (respuestas JSON en rutas `/api/*`).
+- **Mejoras de medio esfuerzo**:
+  - Soporte opcional de **Redis** para caché (`RedisCache`) y rate-limiting, con fallback automático a memoria si no está disponible.
+  - **Exportación de resultados** a JSON y CSV desde el frontend (CSV con BOM UTF-8 para Excel).
+
+### Qué quedó pendiente
+- Verificación manual en navegador con Prowlarr activo (el entorno actual no tiene `.env` configurado).
+- Mejoras de alto esfuerzo: paginación server-side, soporte multilingüe completo y escalado con Redis + múltiples workers.
+
+### Decisiones tomadas
+- Redis es **opcional** mediante `REDIS_URL`; si falta o falla el ping, la app usa `SimpleCache` y memoria para no romper el arranque.
+- La exportación se resuelve en el cliente a partir de los datos crudos de la última búsqueda, sin agregar una nueva ruta backend.
+- Las búsquedas concurrentes se cancelan con `AbortController` para evitar condiciones de carrera entre resultados viejos y nuevos.
+
+---
+
+## Sesión 2026-11-18 (cont.) — Mejoras de alto esfuerzo
+
+### Qué se completó
+- **Paginación server-side de grupos** en `/api/search`:
+  - Nuevos parámetros `page` y `per_page` (máximo 50, default 16).
+  - El conjunto completo de resultados se procesa una vez y se guarda en caché con una clave estable; la paginación se aplica sobre los grupos ya procesados.
+  - La respuesta incluye `page`, `per_page`, `total_groups`, `total_torrents` y `has_more`.
+  - El frontend ahora pide la página siguiente al servidor en "Cargar Más", en lugar de paginar datos ya descargados.
+  - Se extrajo `buildValidGroups()` en `app.js` para reutilizar el filtrado/renderizado entre la búsqueda inicial y la carga de páginas.
+  - La exportación acumula los resultados de todas las páginas cargadas.
+- **Despliegue escalable**:
+  - `Dockerfile` con Waitress multi-hilo (`--threads=8`).
+  - `docker-compose.yml` con la app + Redis 7 (AOF persistente y healthcheck) y `REDIS_URL` configurado.
+  - `.dockerignore` para no incluir `.env`, tests ni artefactos.
+  - README actualizado con instrucciones de despliegue.
+- **Tests**: nuevo `test_search_api_pagination` que valida totales, cortes de página, `has_more` y el tope de `per_page`.
+
+### Qué quedó pendiente
+- Validar el `docker-compose.yml` en un equipo con Docker (no está instalado en el entorno actual).
+- Soporte multilingüe de la interfaz (ES/EN): no se abordó en esta sesión.
+
+### Decisiones tomadas
+- La paginación se hace sobre **grupos de obras** (no sobre torrents), porque es la unidad que se muestra al usuario.
+- Se mantiene el filtrado de idioma en el cliente como salvaguarda, aunque el backend ya filtra; `has_more` lo controla el servidor.
+- La caché manual (`cache.get`/`cache.set`) reemplaza a `@cache.cached` para que el parámetro `page` no invalide la clave ni fuerce a repetir la consulta a Prowlarr.
+
+---
+
+## Sesión 2026-11-19 — Actualización del ejecutable (`app.exe`)
+
+### Qué se completó
+- `app.spec` corregido y ampliado:
+  - Se agregó `static/` a `datas` (antes el EXE no incluía el JavaScript).
+  - Hidden imports nuevos: `waitress`, `redis`, `dotenv`, `flask_limiter`, `flask_caching.backends.rediscache` y `cachelib.redis`.
+- Ejecutable regenerado con PyInstaller 6.22.3 en `dist/app.exe` (~16 MB).
+- Prueba de humo del EXE: `GET /` 200 (con botones de exportación), `GET /static/js/app.js` 200 (con `buildValidGroups` y `exportResults`) y 404 renderizando `error.html`.
+- README: sección de compilación/uso del ejecutable; se aclaró que el `.env` debe estar en el directorio de trabajo.
+
+### Qué quedó pendiente
+- El `.env` real con claves de Prowlarr/TMDB sigue sin configurarse en este entorno.
+
+### Decisiones tomadas
+- PyInstaller se usa como **herramienta de build**, no como dependencia de runtime, por lo que no se agregó a `requirements.txt`.
+- El ejecutable es onefile: incluye plantillas y frontend; solo requiere el `.env` externo.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Instalación de FlareSolverr
+
+### Qué se completó
+- Se instaló **FlareSolverr 3.5.2** para Windows x64 en `F:\Proyectos\flaresolverr` (release oficial, incluye Chromium 153).
+- Verificación: `GET http://127.0.0.1:8191/` responde `{"msg":"FlareSolverr is ready!","version":"3.5.2"}`.
+- Se agregó `iniciar-flaresolverr.bat` para arrancarlo con doble clic.
+- Se detectó Prowlarr 3.0.2 corriendo en `http://localhost:9696` (sin indexer proxies configurados).
+- Se registró FlareSolverr como **Indexer Proxy** en Prowlarr (`id=1`, host `http://localhost:8191/`, timeout 60 s) con el tag `flaresolverr` (`id=1`). El test de conexión desde Prowlarr devolvió OK.
+- Prowlarr no tiene indexers configurados todavía; cuando se agreguen, hay que asignarles el tag `flaresolverr` para que usen el proxy.
+
+### Qué quedó pendiente
+- Asignar el tag `flaresolverr` a los indexers que requieran pasar por Cloudflare (no hay indexers cargados aún).
+- Definir si FlareSolverr debe arrancar automáticamente con Windows (hoy es manual con el `.bat`).
+
+### Decisiones tomadas
+- Se usó el binario oficial en lugar de clonar el repositorio: el código fuente está pensado para ejecutarse con Docker y en este equipo Docker no está disponible.
+- FlareSolverr queda fuera de `requirements.txt` porque es un servicio externo, no una dependencia de Python.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Endurecimiento de seguridad
+
+### Qué se completó
+1. **XSS en el frontend** (`static/js/app.js`):
+   - Nuevo helper `escapeHtml()` aplicado a todos los datos externos (título, sinopsis, tracker, calidad, codec, magnet, poster, idioma, nombre de archivo de subtítulo).
+   - Se eliminaron **todos los `onclick` inline** (10 → 0): ahora las acciones usan atributos `data-*` resueltos por delegación de eventos en el listener global (`fav-btn`, `data-fav-remove`, `data-fav-search`, `data-sub-id`, `data-sub-file`).
+   - `toggleFavorite()` recibe el objeto `info` directamente en lugar de un string interpocado en HTML.
+   - `querySelector` sobre claves de favoritos ahora usa `CSS.escape()` (evita inyección de selectores).
+   - `localStorage` de favoritos se lee y se escribe con `try/catch` (un valor corrupto ya no rompe el arranque de la página).
+2. **Fuerza bruta en Deluge** (`routes/deluge.py`): `POST /api/deluge/add` —que recibe la contraseña en JSON-RPC— ahora tiene `@limiter.limit("10 per minute")`. Era el único endpoint sin límite.
+3. **SSRF en Deluge** (`routes/deluge.py`): nueva función `_is_safe_remote_url()` que rechaza esquemas no web (`file://`, etc.) y destinos link-local (169.254.0.0/16 incluye 169.254.169.254, metadatos de AWS/GCP; fe80::/10; 0.0.0.0/8). Se aplica tanto a la URL original como a la redirección `Location`, y las redirecciones relativas se normalizan con `urljoin()`.
+4. **API key de Prowlarr** (`routes/search.py`): dejó de viajar en query string y ahora se envía en el header `X-Api-Key`.
+
+### Qué quedó pendiente
+- Tests de regresión para el rate limit de Deluge y para `_is_safe_remote_url()` (hoy solo hay `tests/test_search.py`).
+- Verificación visual en navegador de que favoritos, subtítulos y "Enviar a Deluge" siguen funcionando tras el paso a delegación de eventos.
+- Performance (TMDB paralelo, lock contra cache stampede, `limit` en la query a Prowlarr), tests/subtitles/health y CI.
+
+### Decisiones tomadas
+- Se optó por **delegación de eventos con `data-*`** en vez de escapar dentro de `onclick`: escapar con entidades HTML no basta ahí, porque el parser decodifica los entidades antes de que JavaScript vea el código.
+- En el SSRF se **siguen permitiendo hosts privados** (192.168/10.x), porque ahí suele estar Prowlarr; se bloquean solo los destinos link-local y no-web.
+- `escapeHtml()` se aplica también a valores numéricos (`size_gb`, `seeders`) por uniformidad, ya que el costo es despreciable.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Optimización de performance
+
+### Qué se completó
+1. **TMDB en paralelo** (`routes/search.py`): el procesamiento se reestructuró en **dos pasadas**:
+   - 1ª pasada: filtros baratos (tamaño, calidad, HDR, HEVC, idioma) + `PTN.parse` + recolección de títulos únicos. No se hace ninguna llamada de red.
+   - Resolución de metadatos con `ThreadPoolExecutor` (6 workers) para todos los títulos únicos de una vez.
+   - 2ª pasada: agrupación con la información ya resuelta.
+   - Cada worker crea su propio `app_context()` (Flask no comparte context entre hilos y `flask_caching` lo necesita para resolver el backend).
+   - `TMDB_MAX_WORKERS = 6` a propósito: TMDB limita ~40 req / 10 s por IP.
+   - Nueva función `_resolve_titles()` más `_detect_spanish()`, `_detect_audio()` y `_matches_language()` extraídas (funciones más pequeñas).
+2. **Anti cache-stampede**: locks por clave de caché con doble chequeo (`_get_inflight_lock` + re-lectura dentro del lock). Varias peticiones iguales producen **una sola** consulta a Prowlarr. La primera lectura de caché sigue siendo lock-free. El diccionario de locks se poda por encima de 512 entradas.
+3. **Tope de resultados hacia Prowlarr**: nuevo `PROWLARR_SEARCH_LIMIT` (default 500, `0` = sin límite) en `config.py` y `.env.example`, enviado como parámetro `limit`.
+4. `routes/search.py` se dividió en funciones pequeñas: `_fetch_prowlarr()`, `_process_results()`, `_resolve_titles()`, con una excepción `ProwlarrError` para centralizar los códigos HTTP de error (503 sin conexión, 502 error, 500 JSON inválido).
+
+### Medidas (script de verificación)
+- **TMDB con 48 títulos**: 4,82s secuencial → **0,90s paralelo (5,4x)**. Con el peor caso del timeout de 5s pasaría de ~240s a ~40s.
+- **Cache stampede con 8 hilos simultáneos**: **1 sola** llamada a Prowlarr (antes 8), 8 respuestas `200`, 0,55s totales.
+- **Params a Prowlarr**: `{'query', 'type', 'limit': 500}` y `apikey` ya no aparece en el query string.
+
+### Qué quedó pendiente
+- Tests de regresión para el lock anti-stampede y para `_resolve_titles()`.
+- Verificar en producción el valor de `PROWLARR_SEARCH_LIMIT`: 500 puede ser poco para búsquedas muy genéricas (se agrupa por obra, pero el recorte pasa antes de agrupar).
+- Tests de `deluge`/`subtitles`, endpoint `/health` y CI.
+
+### Decisiones tomadas
+- Se eligió `ThreadPoolExecutor` en lugar de async: `requests` y `PTN` son síncronos y el cambio de arquitectura no se justifica.
+- 6 workers como punto medio entre velocidad y el rate limit de TMDB.
+- El tope `limit` se aplica **antes** de agrupar; se acepta perder algo de cobertura a cambio de no procesar miles de duplicados. Por eso es configurable y admite `0`.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Tests de regresión
+
+### Corrección a lo reportado antes
+- **Sí existían** tests de `deluge`, `subtitles` y `tmdb` (`tests/test_deluge.py`, `test_subtitles.py`, `test_tmdb.py`), pero solo cubrían el camino feliz. Lo que faltaban eran los tests de los cambios nuevos y los casos negativos.
+
+### Qué se completó
+- **`tests/conftest.py`**:
+  - Fixture autouse `reset_rate_limits()` que limpia los contadores de Flask-Limiter antes y después de cada test. Sin esto, un test que agota una cuota hacía fallar a los siguientes (el rate limit de Deluge necesita11 peticiones contra una cuota de 10).
+  - Fixture `simple_cache_app`: reemplaza `NullCache` por `SimpleCache` para los tests que dependen de que la caché guarde algo, y lo restaura al terminar.
+- **`tests/test_security.py`** (nuevo, 17 tests):
+  - `_is_safe_remote_url` parametrizado (12 casos): esquemas no web, link-local/metadata, `0.0.0.0`, host no resoluble, y hosts válidos (privados y públicos). Usa un `getaddrinfo` falso para no depender de DNS.
+  - SSRF en el endpoint: `169.254.169.254` → 400 y `requests.get` nunca se invoca.
+  - Validaciones de Deluge: sin magnet → 400, sin credenciales → 500.
+  - Rate limit de Deluge: 10 × 503 y la 11.ª → 429.
+  - API key de Prowlarr por header `X-Api-Key` y **no** presente en `params`.
+- **`tests/test_search_cache.py`** (nuevo, 8 tests):
+  - Cache stampede: 8 hilos simultáneos → **1 sola** llamada a Prowlarr, 8 respuestas 200.
+  - Cache hit: la segunda búsqueda idéntica no vuelve a consultar.
+  - `limit=500` enviado a Prowlarr.
+  - `_resolve_titles`: sin entradas, resolución completa de 12 títulos, y fallback local cuando TMDB devuelve `None`.
+  - Mapeo de errores: sin conexión → 503, JSON inválido → 500.
+- **`tests/test_frontend.py`** + **`tests/frontend_escape_check.js`** (nuevo, 5 tests):
+  - `app.js` no debe contener `onclick=`, `onerror=`, `onload=` ni `onmouseover=` (regresión del fix de XSS).
+  - Presencia de `escapeHtml` y de sus entidades.
+  - Uso de delegación de eventos (`data-fav-info`, `data-sub-id`, `closest()`).
+  - `node --check` y ejecución real de `escapeHtml()` contra payloads XSS (extrae la función desde `app.js` y la evalúa).
+  - Los tests de Node se saltan automáticamente si `node` no está instalado.
+- **`tests/test_subtitles.py`**: se agregaron los4 casos negativos que faltaban (sin `tmdb_id`, sin API key, sin `file_id`, sin token).
+
+### Resultado
+- **42 tests** (antes 8), ejecutados **3 veces seguidas sin fallos** ni flakiness, en ~0,75 s.
+
+### Qué quedó pendiente
+- CI (GitHub Actions) que corra `pytest` en cada push.
+- Cobertura con `pytest-cov` y un umbral mínimo.
+- Tests del frontend con un navegador real (Playwright) para validar el renderizado.
+
+### Decisiones tomadas
+- `getaddrinfo` se mockea en los tests SSRF: garantiza determinismo y evita timeouts por resolución DNS en CI.
+- El test de rate limit aísla el contador por fixture en lugar de desactivar Flask-Limiter, para que la limitación siga estando real durante la suite.
+- El test de stampede usa un reloj real con `sleep(0.3)` en vez de un truco de sincronización: falla igual tanto si se rompe la caché como si se rompe el lock.
+
+---
+
+## Sesión 2026-11-19 (cont.) — CI y cobertura
+
+### Qué se completó
+- **Cobertura con `pytest-cov`**:
+  - `pytest-cov==7.1.0` agregado a `requirements.txt`.
+  - Nuevo `.coveragerc`: mide solo código de producción (`omit` de `tests/`, `build/`, `dist/`), excluye el bloque `if __name__ == "__main__":` y muestra líneas faltantes.
+  - Gate de cobertura en CI: `--cov-fail-under=70` (actual: **76,83 %**).
+- **`tests/test_app.py`** (nuevo, 6 tests) — cubría 54 % y era el archivo más descuidado:
+  - Página principal responde 200 con el formulario.
+  - 404 en rutas web → `error.html`; 404 en `/api/*` → **JSON** (no HTML).
+  - `_redis_available("")` y contra un puerto cerrado → `False`.
+  - `USE_REDIS` es booleano y es `False` cuando no hay `REDIS_URL` (el aserto se condiciona al entorno para no romper si alguien corre los tests con Redis configurado).
+- **`.github/workflows/ci.yml`** (nuevo):
+  - Se ejecuta en `push` a `main` y en `pull_request`.
+  - Matriz de **Python 3.10 y 3.12** (rango que declara `AGENTS.md`), `fail-fast: false`.
+  - Instala Node 20 (los tests de frontend lo necesitan), valida `node --check static/js/app.js` y corre la suite con cobertura.
+  - Sube `coverage.xml` como artefacto.
+  - `cache: pip` para acelerar las corridas.
+- **`.gitignore`**: ahora ignora `.coverage` y `coverage.xml`.
+
+### Resultado
+- **49 tests**, cobertura **76,83 %** sobre código de producción (los tests quedan fuera del cálculo).
+- El comando exacto que corre CI se ejecutó localmente: `python -m pytest --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=70` → **exit 0**.
+
+### Qué quedó pendiente
+- **Ejecutar el workflow real**: no se pudo validar en este equipo (no hay acceso a ejecutar Actions). La validación del YAML fue estructural (sin tabs, indentación par, claves y pasos correctos), no con un parser YAML, porque no hay librería instalada y no se agregan dependencias sin confirmación.
+- Commit y push de los cambios: hay ~25 archivos modificados/nuevos sin commitear.
+- Cobertura de `services/subtitles.py` (22 %) y de las ramas de error de `routes/deluge.py` (68 %).
+- Regenerar `dist/app.exe`.
+
+### Decisiones tomadas
+- El umbral se puso en **70 %** con una holgura de ~7 puntos sobre el valor actual: lo suficiente para que una regresión seria lo rompa, sin que diferencias menores entre versiones de Python lo hagan flaky.
+- Se eligió matriz de dos versiones en lugar de una sola: el proyecto declara soporte desde 3.10 y probar solo la última ocultaría incompatibilidades.
+- No se agregó ningún job de Windows ni de build del `.exe` en CI: encarecería la corrida y el empaquetado ya está verificado manualmente.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Página de error dinámica + ejecutable regenerado
+
+### Qué se completó
+- **`templates/error.html` ya no es estática**: antes un 404 mostraba literalmente *"500 - Error Interno del Servidor"* y *"Algo salió mal en nuestros servidores"*.
+  - Nueva función `error_page_context(code, description)` en `app.py` que traduce el estado a títulos en español (404, 500 y un fallback genérico para cualquier otro código).
+  - `handle_errors()` ahora pasa `code`, `title`, `subtitle` y `description` al template.
+  - `error.html` usa `{{ code }}`, `{{ title }}`, `{{ subtitle }}` y `{{ description }}`.
+- **Tests**: `tests/test_app.py` pasó de 6 a **10 tests**:
+  - El 404 en HTML **no** debe contener "Error del Servidor" y sí debe mostrar "Página no encontrada" / "404 - No encontramos lo que buscas".
+  - Contexto para 404 y 500.
+  - Código no previsto (503) muestra su propio número y usa la `description` recibida.
+  - Código sin `description` no revienta.
+- **`dist/app.exe` regenerado** con PyInstaller (15,56 MB) e incluye el `app.js` sin `onclick`, el `error.html` dinámico y los cambios de performance.
+
+### Prueba de humo del ejecutable
+| Endpoint | Resultado |
+|---|---|
+| `GET /` | 200, formulario presente |
+| `GET /static/js/app.js` | 200, `escapeHtml` presente, **0 `onclick=`** |
+| `GET /no-existe` | 404 → h1 *"Página no encontrada"*, h2 *"404 - No encontramos lo que buscas"*, sin "500" |
+| `GET /api/no-existe` | 404 → JSON `{"error": ...}` |
+| Procesos restantes | 0 (limpiados con `taskkill /T`) |
+
+> Nota: la primera verificación devolvió `False` por la codificación ANSI de la consola de PowerShell al leer el HTML; leyendo el archivo como UTF-8 el contenido es correcto.
+
+### Resultado final
+- **53 tests**, cobertura **77,07 %** (`--cov-fail-under=70` OK), `node --check` OK.
+
+### Qué quedó pendiente
+- Commit y push (hay ~26 archivos sin commitear).
+- Ejecutar el workflow de CI real en GitHub.
+- Cobertura de `services/subtitles.py` (22 %) y de las ramas de error de `routes/deluge.py` (68 %).
+- Soporte multilingüe ES/EN de la interfaz.
