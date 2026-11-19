@@ -44,6 +44,80 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       let globalCurrentResults = [];
       let globalRenderedCount = 0;
       const RESULTS_PER_PAGE = 16;
+
+      // --- Historial de Búsquedas Recientes (LocalStorage) ---
+      const MAX_SEARCH_HISTORY = 8;
+      const loadSearchHistory = () => {
+          try {
+              const raw = localStorage.getItem('mt_search_history');
+              const parsed = raw ? JSON.parse(raw) : [];
+              return Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+              console.warn('Historial no legible, se reinicia:', err);
+              return [];
+          }
+      };
+      let searchHistory = loadSearchHistory();
+
+      const saveSearchHistory = () => {
+          try {
+              localStorage.setItem('mt_search_history', JSON.stringify(searchHistory));
+          } catch (err) {
+              console.warn('No se pudo guardar el historial:', err);
+          }
+      };
+
+      const addSearchHistory = (queryText) => {
+          const q = queryText.trim();
+          if (!q) return;
+          searchHistory = [q, ...searchHistory.filter(item => item.toLowerCase() !== q.toLowerCase())].slice(0, MAX_SEARCH_HISTORY);
+          saveSearchHistory();
+          renderSearchHistory();
+      };
+
+      const renderSearchHistory = () => {
+          const container = document.getElementById("searchHistoryContainer");
+          const tagsDiv = document.getElementById("searchHistoryTags");
+          if (!container || !tagsDiv) return;
+
+          if (searchHistory.length === 0) {
+              container.classList.add("hidden");
+              tagsDiv.innerHTML = "";
+              return;
+          }
+
+          container.classList.remove("hidden");
+          tagsDiv.innerHTML = searchHistory.map(item => `
+              <button
+                  type="button"
+                  class="history-tag-btn px-3 py-1 bg-[#1a1d24] hover:bg-violet-600/20 hover:border-violet-500/50 border border-white/5 text-gray-300 hover:text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5"
+                  data-query="${escapeHtml(item)}"
+              >
+                  <span>${escapeHtml(item)}</span>
+              </button>
+          `).join("");
+      };
+
+      document.getElementById("clearHistoryBtn")?.addEventListener("click", () => {
+          searchHistory = [];
+          saveSearchHistory();
+          renderSearchHistory();
+      });
+
+      document.getElementById("searchHistoryTags")?.addEventListener("click", (e) => {
+          const btn = e.target.closest(".history-tag-btn");
+          if (!btn) return;
+          const q = btn.dataset.query;
+          const input = document.getElementById("query");
+          if (input && q) {
+              input.value = q;
+              document.getElementById("searchForm")?.dispatchEvent(new Event("submit"));
+          }
+      });
+
+      // Render inicial del historial
+      renderSearchHistory();
+
       // localStorage puede estar corrupto: nunca debe romper el arranque de la página
       const loadFavorites = () => {
           try {
@@ -518,6 +592,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             validGroups.push({
               info: info,
               visibleTorrentsHTML: torrentsHTML,
+              visibleTorrents: group.torrents || [],
               visibleCount: visibleCount,
               groupKey: `fav_${info.title.replace(/\s+/g, "_")}_${info.year}`,
               episodes: buildEpisodeList(group.torrents),
@@ -629,6 +704,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             // Guardar datos crudos para la exportación
             globalRawResults = data.results;
             globalLastQuery = query;
+            addSearchHistory(query);
 
             if (data.results.length === 0) {
               throw new Error(
@@ -657,6 +733,8 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             globalRenderedCount = 0;
             resultsList.innerHTML = "";
 
+            applyClientSorting();
+
             resultsCount.textContent = `${globalTotalGroups} OBRA${globalTotalGroups !== 1 ? "S" : ""} ENCONTRADA${globalTotalGroups !== 1 ? "S" : ""}`;
             resultsSection.classList.remove("hidden");
 
@@ -678,6 +756,36 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           }
         });
         
+        // FUNCIÓN DE ORDENAMIENTO EN CLIENTE
+        function applyClientSorting() {
+            const selector = document.getElementById("sortSelector");
+            const sortMode = selector ? selector.value : "seeders_desc";
+
+            globalCurrentResults.sort((a, b) => {
+                if (sortMode === "year_desc") {
+                    return (parseInt(b.info.year) || 0) - (parseInt(a.info.year) || 0);
+                } else if (sortMode === "year_asc") {
+                    return (parseInt(a.info.year) || 9999) - (parseInt(b.info.year) || 9999);
+                } else if (sortMode === "title_asc") {
+                    return (a.info.title || "").localeCompare(b.info.title || "");
+                } else {
+                    // seeders_desc por defecto
+                    const maxA = Math.max(...(a.visibleTorrents || []).map(t => t.seeders || 0), 0);
+                    const maxB = Math.max(...(b.visibleTorrents || []).map(t => t.seeders || 0), 0);
+                    return maxB - maxA;
+                }
+            });
+        }
+
+        document.getElementById("sortSelector")?.addEventListener("change", () => {
+            if (globalCurrentResults.length === 0) return;
+            applyClientSorting();
+            globalRenderedCount = 0;
+            const resultsList = document.getElementById("resultsList");
+            if (resultsList) resultsList.innerHTML = "";
+            renderNextBatch();
+        });
+
         // FUNCIÓN DE RENDERIZADO POR LOTES (LAZY LOADING MANUAL)
         function renderNextBatch() {
             const fragment = document.createDocumentFragment();

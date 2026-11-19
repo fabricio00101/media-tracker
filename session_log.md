@@ -555,3 +555,32 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - `API_SECRET_TOKEN` es opcional: si no se define, se mantiene el comportamiento predeterminado de red local sin fricción; si se define en `.env`, el endpoint `/api/deluge/add` queda estrictamente restringido con HTTP 403 ante llamadas no autorizadas.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Implementación de la Etapa 5 de la Hoja de Ruta (Evolución del Producto y UX)
+
+### Qué se completó
+- **Historial de Búsquedas Recientes (`static/js/app.js` y `templates/index.html`)**:
+  - Almacenamiento local seguro en `LocalStorage` (`mt_search_history`) de las últimas 8 consultas únicas.
+  - Barra visual de etiquetas clickeables ("Recientes") que permite re-ejecutar búsquedas en un clic y botón para limpiar el historial.
+- **Selector de Ordenamiento Dinámico de Resultados**:
+  - Añadido selector en cabecera de resultados (`#sortSelector`) con múltiples modos de ordenamiento:
+    - *Más Seeders* (modo predeterminado por salud del torrent).
+    - *Más Recientes (Año descendente)*.
+    - *Más Antiguas (Año ascendente)*.
+    - *Título (A-Z)*.
+  - Reordenamiento instantáneo en cliente sin necesidad de re-consultar al backend.
+- **Accesibilidad y UX Móvil (a11y)**:
+  - Atributos `aria-label` en inputs, selectores y botones de búsqueda y exportación.
+  - Contenedores flexibles responsivos para pantallas estrechas.
+- **Pruebas y Verificación**:
+  - Validación de sintaxis JS con `node --check static/js/app.js` exitosa.
+  - Suite de tests `pytest`: **100 tests pasando (100% verde)**.
+- **Hoja de ruta actualizada**: Marcados como completados los 7 ítems de la *Etapa 5 — Evolución del producto* en `media-tracker-hoja-de-ruta.md`.
+
+### Qué quedó pendiente
+- Avanzar con la *Etapa 6 — Escalado según demanda* (métricas de rendimiento y observabilidad).
+
+### Decisiones tomadas
+- El historial y ordenamiento se resuelven del lado del cliente vía `LocalStorage` y arrays en memoria para velocidad instantánea sin añadir latencia de red ni carga de estado al servidor.

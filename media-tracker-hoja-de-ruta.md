@@ -584,13 +584,13 @@ controlada y documentada.
 
 ### Etapa 5 --- Evolución del producto
 
--   [ ] Historial de búsquedas.
--   [ ] Filtros guardados.
--   [ ] Ordenamiento avanzado.
--   [ ] Estados de carga y errores más claros.
--   [ ] Mejoras de accesibilidad.
--   [ ] Mejor experiencia móvil.
--   [ ] Evaluar persistencia en base de datos si aparecen necesidades
+-   [x] Historial de búsquedas.
+-   [x] Filtros guardados.
+-   [x] Ordenamiento avanzado.
+-   [x] Estados de carga y errores más claros.
+-   [x] Mejoras de accesibilidad.
+-   [x] Mejor experiencia móvil.
+-   [x] Evaluar persistencia en base de datos si aparecen necesidades
     reales.
 
 **Resultado esperado:** una aplicación más cómoda para el uso cotidiano,

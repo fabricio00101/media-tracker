@@ -132,12 +132,29 @@
               type="submit"
               id="searchBtn"
               class="absolute inset-y-2 right-2 px-6 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+              aria-label="Ejecutar búsqueda"
             >
               <span id="btnText">Buscar</span>
               <div
                 id="btnSpinner"
                 class="hidden w-5 h-5 border-2 border-white rounded-full loader hidden"
               ></div>
+            </button>
+          </div>
+
+          <!-- HISTORIAL DE BÚSQUEDAS RECIENTES -->
+          <div id="searchHistoryContainer" class="hidden mb-4 pb-3 border-b border-white/5 flex flex-wrap items-center gap-2">
+            <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1">
+              <i class="fas fa-history"></i> Recientes:
+            </span>
+            <div id="searchHistoryTags" class="flex flex-wrap items-center gap-2"></div>
+            <button
+              type="button"
+              id="clearHistoryBtn"
+              class="text-xs text-gray-500 hover:text-red-400 ml-auto transition-colors"
+              title="Borrar historial reciente"
+            >
+              <i class="fas fa-trash-alt mr-1"></i>Limpiar
             </button>
           </div>
 
@@ -310,26 +327,45 @@
           >
             OBRAS ENCONTRADAS (0)
           </h2>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500 uppercase tracking-wider mr-1 hidden sm:inline">
-              <i class="fas fa-download mr-1"></i> Exportar:
-            </span>
-            <button
-              type="button"
-              id="exportJsonBtn"
-              class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-              title="Descargar todos los resultados en formato JSON"
-            >
-              <i class="fas fa-file-code"></i> JSON
-            </button>
-            <button
-              type="button"
-              id="exportCsvBtn"
-              class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-              title="Descargar todos los resultados en formato CSV (Excel)"
-            >
-              <i class="fas fa-file-csv"></i> CSV
-            </button>
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Ordenamiento -->
+            <div class="flex items-center gap-2">
+              <label for="sortSelector" class="text-xs text-gray-500 uppercase tracking-wider hidden sm:inline">
+                <i class="fas fa-sort mr-1"></i> Ordenar:
+              </label>
+              <select
+                id="sortSelector"
+                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 text-xs font-bold rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-violet-500 cursor-pointer"
+                aria-label="Criterio de ordenamiento"
+              >
+                <option value="seeders_desc">Más Seeders</option>
+                <option value="year_desc">Más Recientes (Año)</option>
+                <option value="year_asc">Más Antiguas (Año)</option>
+                <option value="title_asc">Título (A-Z)</option>
+              </select>
+            </div>
+
+            <!-- Exportar -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                id="exportJsonBtn"
+                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                title="Descargar todos los resultados en formato JSON"
+                aria-label="Exportar a JSON"
+              >
+                <i class="fas fa-file-code"></i> JSON
+              </button>
+              <button
+                type="button"
+                id="exportCsvBtn"
+                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                title="Descargar todos los resultados en formato CSV (Excel)"
+                aria-label="Exportar a CSV"
+              >
+                <i class="fas fa-file-csv"></i> CSV
+              </button>
+            </div>
           </div>
         </div>
         <div id="resultsList" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
