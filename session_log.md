@@ -312,3 +312,36 @@
 
 ### Resultado final de la sesión
 - 53 tests, cobertura 77,07 %, `node --check` OK, CI verde ×2, árbol limpio, `dist/app.exe` regenerado (15,56 MB).
+
+---
+
+## Sesión 2026-11-19 (cont.) — Cobertura de subtítulos y ramas de error de Deluge
+
+### Qué se completó
+- **`tests/test_subtitles_service.py` (nuevo, 5 tests)**: primera cobertura directa de `services.get_opensubtitles_token()`.
+  - Cache hit (token vigente → no toca red).
+  - Sin credenciales → `None` sin intentar login.
+  - Login exitoso → guarda en caché con clave `opensubtitles_token_data` y devuelve el token.
+  - Login sin `token` en la respuesta → `None` sin escribir caché.
+  - Excepción de red en el login → `None` sin escribir caché.
+  - Se usó `monkeypatch` para las credenciales en vez de `@patch(..., new=...)`: evita el orden ambiguo de inyección de mocks y el bug de que `new=` no aporta parámetro.
+- **`tests/test_deluge.py` (nuevo, 13 tests)**: ramas que `test_security.py` no tocaba.
+  - Magnet feliz, error en JSON de respuesta, `raise_for_status` del add, login con `result` falso (401), `ConnectionError` (503), excepción genérica (500).
+  - Descarga `.torrent` vía `core.add_torrent_file`, fallo de `raise_for_status`.
+  - Redirección 302 a magnet, 302 sin `Location` (502), 302 a URL no permitida (400, con `side_effect=[True, False]` porque `_is_safe_remote_url` se evalúa dos veces), segunda GET de la redirección fallando.
+  - `urlparse` lanzando excepción → URL insegura (cierra las 2 líneas restantes del helper SSRF).
+
+### Resultado
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `services/subtitles.py` | 22 % | **100 %** |
+| `routes/deluge.py` | 68 % | **100 %** |
+| Total proyecto | 77,07 % | **86,78 %** |
+| Tests | 53 | **70** |
+
+- Suite corrida dos veces seguidas: 70 passed, sin flakes (~2 s). `node --check` OK.
+
+### Decisiones
+- Los tests nuevos van en archivos propios (`test_subtitles_service.py`, `test_deluge.py`) en lugar de mezclarse con los de rutas.
+- Helper `_mock_response()` para imitar `requests.Response` (incluye `content` para el `.torrent` en base64).
+- No se tocó `routes/subtitles.py` (71 %): su cobertura quedó fuera del alcance de esta ronda.
