@@ -387,6 +387,8 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 | Tests | 70 | **88** |
 
 - Suite completa: 88 passed (~2 s), `node --check` OK, plantilla renderiza el selector de episodios.
+- `dist/app.exe` regenerado (16,32 MB) y humo-testeado: `GET /` → 200 con el selector de episodios y `tmdb_id=undefined` → 400.
+- Commit `70bf1ec` pusheado a `main`; CI verde en Python 3.10 y 3.12 (run 44559556492).
 
 ### Pendiente / aviso importante
 - Para que la búsqueda funcione de verdad hace falta crear un `.env` (copiar `.env.example`) con `TMDB_API_KEY`, `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USER` y `OPENSUBTITLES_PASSWORD`. Sin esas claves el botón queda deshabilitado y el modal muestra el error de configuración (ya no consulta con datos basura).
