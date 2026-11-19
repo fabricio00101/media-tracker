@@ -136,6 +136,41 @@ def test_resolve_titles_fallback_local(app):
     assert group_key.startswith("local_")
     assert tmdb_cache[group_key]["title"] == "Mi Pelicula".title()
     assert "Sinopsis" in tmdb_cache[group_key]["overview"]
+    assert tmdb_cache[group_key]["id"] is None
+    assert tmdb_cache[group_key]["media_type"] == "movie"
+
+
+def test_resolve_titles_fallback_local_serie(app):
+    """Sin TMDB, una serie igual queda marcada como tv y sin id."""
+    with app.test_request_context("/"):
+        with patch("routes.search.get_tmdb_info", return_value=None):
+            title_to_key, tmdb_cache = rs._resolve_titles(
+                {"k": ("Mi Serie", "2020", True)}
+            )
+
+    group_key = title_to_key["k"]
+    assert tmdb_cache[group_key]["id"] is None
+    assert tmdb_cache[group_key]["media_type"] == "tv"
+
+
+def test_resolve_titles_completa_media_type_de_cache_vieja(app):
+    """Entradas memoizadas antes del cambio no traen media_type."""
+    info_vieja = {
+        "id": 1,
+        "title": "Serie Vieja",
+        "overview": "o",
+        "poster_url": None,
+        "year": "2020",
+    }
+
+    with app.test_request_context("/"):
+        with patch("routes.search.get_tmdb_info", return_value=dict(info_vieja)):
+            title_to_key, tmdb_cache = rs._resolve_titles(
+                {"k": ("Serie Vieja", "2020", True)}
+            )
+
+    group_key = title_to_key["k"]
+    assert tmdb_cache[group_key]["media_type"] == "tv"
 
 
 # ---------------------------------------------------------------------------

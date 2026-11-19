@@ -345,3 +345,49 @@
 - Los tests nuevos van en archivos propios (`test_subtitles_service.py`, `test_deluge.py`) en lugar de mezclarse con los de rutas.
 - Helper `_mock_response()` para imitar `requests.Response` (incluye `content` para el `.torrent` en base64).
 - No se tocó `routes/subtitles.py` (71 %): su cobertura quedó fuera del alcance de esta ronda.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Arreglo de búsqueda de subtítulos
+
+### Bug reportado
+Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". El usuario sospechaba del TMDB ID y acertó.
+
+### Causa raíz (varias, encadenadas)
+1. **No existe `.env` en el proyecto** (ni variables de entorno de usuario): `TMDB_API_KEY` está vacía, así que `group_info` no tiene `id`. El frontend generaba `data-sub-id="undefined"` y el backend buscaba literalmente `tmdb_id=undefined` → OpenSubtitles devolvía resultados aleatorios.
+2. **Series buscadas mal**: se usaba `tmdb_id` para todo. La API v1 de OpenSubtitles exige `parent_tmdb_id` + `season_number` + `episode_number` para episodios.
+3. **Idioma inválido**: se enviaba `languages=es,es-mx`; `es-mx` no es un código válido para la API (solo `es`).
+4. **Enlace de respaldo roto**: usaba el TMDB ID en el parámetro `imdbid-` de opensubtitles.org, que espera un IMDb ID.
+
+### Cambios
+- `services/tmdb.py`: `get_tmdb_info()` devuelve `media_type` (`movie`/`tv`).
+- `routes/search.py`: el fallback local incluye `id: None` y `media_type`; las entradas memoizadas viejas reciben `media_type` vía `setdefault` (compatibilidad con caché de 24 h).
+- `routes/subtitles.py`:
+  - `_build_subtitles_params()`: películas por `tmdb_id`; series por `parent_tmdb_id` + temporada/episodio (`type=episode`).
+  - `tmdb_id` y `file_id` deben ser numéricos (400 si no).
+  - Series sin temporada/episodio → 400 explicativo.
+  - `languages=es`; mensajes de error con la variable de `.env` que falta.
+- Frontend (`app.js` + `index.html`):
+  - Botón deshabilitado con tooltip si falta TMDB ID o si la serie solo tiene packs de temporada completa.
+  - Selector de episodio en el modal cuando el grupo trae varios.
+  - Re-búsqueda al cambiar de episodio; se cancela la petición anterior.
+  - Título del modal con `Temporada X · Episodio Y`.
+  - Enlace de respaldo por nombre de obra, no por TMDB ID.
+
+### Tests
+- `tests/test_subtitles.py`: +14 (parámetros movie/tv, `tmdb_id=undefined`, serie sin episodio, 401/429/500 de OpenSubtitles, 406 y otros errores de descarga).
+- `tests/test_tmdb.py`: `media_type` en película y serie.
+- `tests/test_search_cache.py`: fallback con `id: None`, serie y `media_type` agregado a caché vieja.
+
+### Resultado
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `routes/subtitles.py` | 71 % | **100 %** |
+| Total proyecto | 86,78 % | **90,84 %** |
+| Tests | 70 | **88** |
+
+- Suite completa: 88 passed (~2 s), `node --check` OK, plantilla renderiza el selector de episodios.
+
+### Pendiente / aviso importante
+- Para que la búsqueda funcione de verdad hace falta crear un `.env` (copiar `.env.example`) con `TMDB_API_KEY`, `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USER` y `OPENSUBTITLES_PASSWORD`. Sin esas claves el botón queda deshabilitado y el modal muestra el error de configuración (ya no consulta con datos basura).
+- En el `.exe` empaquetado, `load_dotenv()` busca el `.env` desde el directorio de ejecución (comportamiento `sys.frozen` de python-dotenv): debe estar junto a `app.exe` o en una carpeta superior.

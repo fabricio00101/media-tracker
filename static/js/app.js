@@ -177,69 +177,131 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // Control del Modal de Subtítulos
       const subModal = document.getElementById('subtitlesModal');
       const subModalInner = document.getElementById('subtitlesModalInner');
-      
-      window.openSubtitlesModal = async (tmdbId, title) => {
-          document.getElementById('subtitlesModalTitle').innerHTML = `<i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos para "${escapeHtml(title)}"`;
+
+      // Abre el modal y busca subtítulos. En series se busca por
+      // parent_tmdb_id + temporada/episodio (nunca por tmdb_id: OpenSubtitles
+      // devolvería resultados de cualquier otra cosa).
+      window.openSubtitlesModal = (tmdbId, title, mediaType = "movie", episodes = []) => {
+          const esSerie = mediaType === "tv";
+          const lista = Array.isArray(episodes) ? episodes : [];
+          const picker = document.getElementById('subtitlesEpisodePicker');
+          const select = document.getElementById('subtitlesEpisodeSelect');
+          const titulo = document.getElementById('subtitlesModalTitle');
+
+          let seleccion = esSerie && lista.length ? lista[0] : null;
+          let activeController = null;
+
+          const etiquetaEpisodio = (ep) => `Temporada ${ep.season} · Episodio ${ep.episode}`;
+
+          const actualizarTitulo = () => {
+              const sufijo = seleccion ? ` <span class="text-blue-400 text-lg">(${escapeHtml(etiquetaEpisodio(seleccion))})</span>` : "";
+              titulo.innerHTML = `<i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos para "${escapeHtml(title)}"${sufijo}`;
+          };
+
+          // Selector de episodio: solo aparece si el grupo trae varios.
+          select.innerHTML = lista
+              .map((ep, i) => `<option value="${i}">${escapeHtml(etiquetaEpisodio(ep))}</option>`)
+              .join("");
+          select.value = "0";
+          picker.classList.toggle('hidden', !(esSerie && lista.length > 1));
+
+          actualizarTitulo();
           document.getElementById('subtitlesList').innerHTML = '';
           document.getElementById('emptySubtitlesMessage').classList.add('hidden');
           document.getElementById('errorSubtitlesMessage').classList.add('hidden');
           document.getElementById('subtitlesLoading').classList.remove('hidden');
-          
+
           subModal.classList.remove('hidden');
           setTimeout(() => {
               subModal.classList.remove('opacity-0');
               subModalInner.classList.remove('scale-95');
           }, 10);
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
-          
-          try {
-              const res = await fetch(`/api/subtitles/search?tmdb_id=${tmdbId}`, { signal: controller.signal });
-              clearTimeout(timeoutId);
-              const data = await res.json();
-              if(!res.ok) throw new Error(data.error || "Error buscando subtítulos");
-              
-              document.getElementById('subtitlesLoading').classList.add('hidden');
-              
-              if(!data.data || data.data.length === 0) {
-                  document.getElementById('emptySubtitlesMessage').classList.remove('hidden');
-                  return;
-              }
-              
-              let html = '';
-              data.data.forEach(sub => {
-                  const attrs = sub.attributes;
-                  const lang = attrs.language === 'es' ? '🇪🇸 Castellano' : (attrs.language === 'es-mx' || attrs.language === 'es-la' ? '🇲🇽 Latino' : `🗨️ ${attrs.language}`);
-                  const fileName = attrs.files[0]?.file_name || 'Subtítulo';
-                  const fileId = attrs.files[0]?.file_id;
-                  const rating = attrs.ratings || 0;
-                  
-                  html += `
-                      <div class="bg-[#252a35] border border-white/5 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-blue-500/30 transition-colors">
-                          <div class="flex-grow overflow-hidden">
-                              <div class="flex items-center gap-3 mb-2">
-                                  <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-bold border border-white/10">${escapeHtml(lang)}</span>
-                                  <span class="text-xs text-yellow-500"><i class="fas fa-star"></i> ${escapeHtml(rating)}</span>
-                              </div>
-                              <p class="text-sm font-bold text-white break-all" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</p>
-                          </div>
-                          <button type="button" data-sub-file="${escapeHtml(fileId)}" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 flex-shrink-0">
-                              <i class="fas fa-download"></i> Descargar
-                          </button>
-                      </div>
-                  `;
+
+          const buscar = async () => {
+              if (activeController) activeController.abort();
+              const controller = new AbortController();
+              activeController = controller;
+
+              document.getElementById('subtitlesList').innerHTML = '';
+              document.getElementById('emptySubtitlesMessage').classList.add('hidden');
+              document.getElementById('errorSubtitlesMessage').classList.add('hidden');
+              document.getElementById('subtitlesLoading').classList.remove('hidden');
+              actualizarTitulo();
+
+              let timedOut = false;
+              const timeoutId = setTimeout(() => {
+                  timedOut = true;
+                  controller.abort();
+              }, 15000);
+
+              const params = new URLSearchParams({
+                  tmdb_id: String(tmdbId),
+                  media_type: esSerie ? "tv" : "movie",
               });
-              document.getElementById('subtitlesList').innerHTML = html;
-              
-          } catch(err) {
-              clearTimeout(timeoutId);
-              document.getElementById('subtitlesLoading').classList.add('hidden');
-              const errorMsg = err.name === 'AbortError' ? "La búsqueda de subtítulos tardó demasiado (Timeout de 15s)." : err.message;
-              document.getElementById('errorSubtitlesText').textContent = errorMsg;
-              document.getElementById('fallbackSubtitlesLink').href = `https://www.opensubtitles.org/es/search/sublanguageid-spa,spl/imdbid-${tmdbId}`; // Aproximación, la web re-dirige a tmdb a veces, pero ayuda al usuario
-              document.getElementById('errorSubtitlesMessage').classList.remove('hidden');
-          }
+              if (seleccion) {
+                  params.set("season", String(seleccion.season));
+                  params.set("episode", String(seleccion.episode));
+              }
+
+              try {
+                  const res = await fetch(`/api/subtitles/search?${params.toString()}`, { signal: controller.signal });
+                  clearTimeout(timeoutId);
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || "Error buscando subtítulos");
+
+                  document.getElementById('subtitlesLoading').classList.add('hidden');
+
+                  if (!data.data || data.data.length === 0) {
+                      document.getElementById('emptySubtitlesMessage').classList.remove('hidden');
+                      return;
+                  }
+
+                  let html = '';
+                  data.data.forEach(sub => {
+                      const attrs = sub.attributes;
+                      const lang = attrs.language === 'es' ? '🇪🇸 Español' : (attrs.language === 'es-mx' || attrs.language === 'es-la' ? '🇲🇽 Latino' : `🗨️ ${attrs.language}`);
+                      const fileName = attrs.files[0]?.file_name || 'Subtítulo';
+                      const fileId = attrs.files[0]?.file_id;
+                      const rating = attrs.ratings || 0;
+
+                      html += `
+                          <div class="bg-[#252a35] border border-white/5 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-blue-500/30 transition-colors">
+                              <div class="flex-grow overflow-hidden">
+                                  <div class="flex items-center gap-3 mb-2">
+                                      <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-bold border border-white/10">${escapeHtml(lang)}</span>
+                                      <span class="text-xs text-yellow-500"><i class="fas fa-star"></i> ${escapeHtml(rating)}</span>
+                                  </div>
+                                  <p class="text-sm font-bold text-white break-all" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</p>
+                              </div>
+                              <button type="button" data-sub-file="${escapeHtml(fileId)}" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 flex-shrink-0">
+                                  <i class="fas fa-download"></i> Descargar
+                              </button>
+                          </div>
+                      `;
+                  });
+                  document.getElementById('subtitlesList').innerHTML = html;
+
+              } catch (err) {
+                  clearTimeout(timeoutId);
+                  // Una búsqueda reemplazada por otra más reciente no es un error.
+                  if (!timedOut && controller !== activeController) return;
+                  document.getElementById('subtitlesLoading').classList.add('hidden');
+                  const errorMsg = timedOut ? "La búsqueda de subtítulos tardó demasiado (Timeout de 15s)." : err.message;
+                  document.getElementById('errorSubtitlesText').textContent = errorMsg;
+                  // Búsqueda manual por nombre: usar el TMDB ID acá mandaba a
+                  // páginas sin relación (OpenSubtitles espera un IMDb ID).
+                  const nombre = encodeURIComponent(title).replace(/%20/g, "+");
+                  document.getElementById('fallbackSubtitlesLink').href = `https://www.opensubtitles.org/es/search/sublanguageid-spa/moviename-${nombre}`;
+                  document.getElementById('errorSubtitlesMessage').classList.remove('hidden');
+              }
+          };
+
+          select.onchange = () => {
+              seleccion = lista[Number(select.value)] || null;
+              buscar();
+          };
+
+          buscar();
       };
       
       window.downloadSubtitle = async (fileId, btnEl) => {
@@ -336,6 +398,47 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         return `<span class="px-2 py-1 flex-shrink-0 ${colorClass} text-[10px] font-bold rounded border lowercase inline-flex items-center" title="Soporte detectado en el título">${icon}${escapeHtml(supportType)}</span>`;
       };
 
+      // Episodios individuales presentes en un grupo (para buscar subtítulos).
+      // Los packs de temporada completa no traen episodio y se omiten.
+      const buildEpisodeList = (torrents) => {
+        const vistos = new Map();
+        (torrents || []).forEach((t) => {
+          const season = Number(t.season);
+          const episode = Number(t.episode);
+          if (Number.isInteger(season) && Number.isInteger(episode)) {
+            vistos.set(`${season}-${episode}`, { season, episode });
+          }
+        });
+        return [...vistos.values()].sort(
+          (a, b) => a.season - b.season || a.episode - b.episode,
+        );
+      };
+
+      // Botón "Buscar Subtítulos". Se desactiva si falta el TMDB ID (sin
+      // TMDB_API_KEY no hay a qué apuntar) o si la serie solo tiene packs de
+      // temporada completa (no existe "el" subtítulo de una temporada).
+      const buildSubtitlesButton = (info, episodes) => {
+        const deshabilitado =
+          "bg-gray-600/10 border border-gray-600/20 text-gray-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 cursor-not-allowed";
+
+        if (!info.id) {
+          return `<button type="button" disabled title="Falta TMDB_API_KEY en el servidor; no hay TMDB ID para buscar" class="${deshabilitado}">
+                      <i class="fas fa-closed-captioning"></i> Subtítulos no disponibles
+                  </button>`;
+        }
+
+        const mediaType = info.media_type === "tv" ? "tv" : "movie";
+        if (mediaType === "tv" && episodes.length === 0) {
+          return `<button type="button" disabled title="Este grupo solo tiene packs de temporada completa; elegí un episodio individual" class="${deshabilitado}">
+                      <i class="fas fa-closed-captioning"></i> Subtítulos por episodio
+                  </button>`;
+        }
+
+        return `<button type="button" data-sub-id="${escapeHtml(info.id)}" data-sub-title="${escapeHtml(info.title)}" data-sub-media="${mediaType}" data-sub-episodes="${escapeHtml(encodeData(episodes))}" class="bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                    <i class="fas fa-closed-captioning"></i> Buscar Subtítulos
+                </button>`;
+      };
+
       const buildValidGroups = (rawResults) => {
         const isLatino = document.getElementById("langLatino").checked;
         const isCastellano = document.getElementById("langCastellano").checked;
@@ -417,6 +520,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               visibleTorrentsHTML: torrentsHTML,
               visibleCount: visibleCount,
               groupKey: `fav_${info.title.replace(/\s+/g, "_")}_${info.year}`,
+              episodes: buildEpisodeList(group.torrents),
             });
           }
         });
@@ -583,7 +687,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             const nextBatch = globalCurrentResults.slice(globalRenderedCount, globalRenderedCount + RESULTS_PER_PAGE);
             
             nextBatch.forEach((groupObj) => {
-               const { info, visibleTorrentsHTML, visibleCount, groupKey } = groupObj;
+               const { info, visibleTorrentsHTML, visibleCount, groupKey, episodes } = groupObj;
                
                const posterImg = info.poster_url
                 ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-full h-[400px] object-cover object-top border-b border-white/10" loading="lazy">`
@@ -612,9 +716,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                             <p class="text-sm text-gray-400 mb-6 line-clamp-3" title="${escapeHtml(info.overview || "")}">${escapeHtml(info.overview || "Sin sinopsis disponible.")}</p>
                             
                             <div class="flex gap-2 mt-auto mb-4">
-                                <button type="button" data-sub-id="${escapeHtml(info.id)}" data-sub-title="${escapeHtml(info.title)}" class="bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                                    <i class="fas fa-closed-captioning"></i> Buscar Subtítulos
-                                </button>
+                                ${buildSubtitlesButton(info, episodes || [])}
                             </div>
 
                             <details class="group/details">
@@ -788,7 +890,18 @@ const filterBtns = document.querySelectorAll(".filter-btn");
     // Abrir modal de subtítulos
     const subBtn = e.target.closest('[data-sub-id]');
     if (subBtn) {
-        window.openSubtitlesModal(subBtn.getAttribute('data-sub-id'), subBtn.getAttribute('data-sub-title'));
+        let episodes = [];
+        try {
+            episodes = JSON.parse(decodeURIComponent(subBtn.getAttribute('data-sub-episodes') || '[]'));
+        } catch (_) {
+            episodes = [];
+        }
+        window.openSubtitlesModal(
+            subBtn.getAttribute('data-sub-id'),
+            subBtn.getAttribute('data-sub-title'),
+            subBtn.getAttribute('data-sub-media') || 'movie',
+            Array.isArray(episodes) ? episodes : [],
+        );
         return;
     }
 

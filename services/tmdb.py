@@ -43,6 +43,9 @@ def get_tmdb_info(query_title, year=None, is_tv=False):
                         if not is_tv
                         else first.get("first_air_date", "")[:4]
                     ),
+                    # Necesario para buscar subtítulos: las series se buscan
+                    # por parent_tmdb_id + temporada/episodio, no por tmdb_id.
+                    "media_type": "tv" if is_tv else "movie",
                 }
     except Exception as e:
         logging.warning(f"Error consultando TMDB para '{query_title}': {e}")

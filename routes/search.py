@@ -160,9 +160,12 @@ def _resolve_titles(unique_titles):
     tmdb_cache = {}
 
     for search_key, info in zip(keys, infos):
-        raw_title, year, _is_tv = unique_titles[search_key]
+        raw_title, year, is_tv = unique_titles[search_key]
 
         if info and info.get("title"):
+            # Las entradas memoizadas antes de este cambio no traen media_type:
+            # sin él, una serie se buscaría como película en OpenSubtitles.
+            info.setdefault("media_type", "tv" if is_tv else "movie")
             group_key = f"tmdb_{info['title'].lower()}_{info.get('year', '')}"
             title_to_tmdb_key[search_key] = group_key
             tmdb_cache.setdefault(group_key, info)
@@ -172,10 +175,14 @@ def _resolve_titles(unique_titles):
             tmdb_cache.setdefault(
                 group_key,
                 {
+                    # Sin TMDB no hay id: el frontend oculta la búsqueda de
+                    # subtítulos en vez de mandar "undefined" a OpenSubtitles.
+                    "id": None,
                     "title": raw_title.title(),
                     "overview": "Sinopsis no disponible en TMDB o API Key no configurada.",
                     "poster_url": None,
                     "year": year,
+                    "media_type": "tv" if is_tv else "movie",
                 },
             )
 
