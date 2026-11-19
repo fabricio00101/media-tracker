@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    container_name: media-tracker
+    ports:
+      - "5000:5000"
+    # Carga las claves de API desde el archivo .env (si existe)
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Redis interno del compose para caché y rate-limiting persistentes
+      REDIS_URL: redis://redis:6379/0
+      FLASK_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  redis-data:

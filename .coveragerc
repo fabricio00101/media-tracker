@@ -1,0 +1,14 @@
+[run]
+source = .
+omit =
+    tests/*
+    build/*
+    dist/*
+    */site-packages/*
+
+[report]
+# Excluye el bloque de arranque manual, que solo se ejecuta con `python app.py`
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+show_missing = True
