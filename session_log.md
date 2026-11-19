@@ -498,3 +498,31 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 ### Decisiones tomadas
 - Se mantuvo `TMDB_CONCURRENCY_LIMIT = 6` para respetar el límite de 40 requests cada 10 segundos de la API pública de TMDB por IP.
 - Si ningún candidato de TMDB alcanza el score mínimo de 30, `get_tmdb_info` retorna `None` para que el backend use fallback a información local en lugar de asociar un póster o sinopsis equivocada.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Implementación de la Etapa 3 de la Hoja de Ruta (Mantenibilidad y Modularización)
+
+### Qué se completó
+- **Modularización de Servicios y Utilidades**:
+  - Creado `utils/validators.py`: centraliza la validación estricta de parámetros (`validate_search_params`) y definición de excepciones (`ValidationError`).
+  - Creado `utils/language_detector.py`: centraliza `detect_spanish`, `detect_audio` y `matches_language`.
+  - Creado `services/prowlarr_service.py`: aísla la comunicación HTTP con Prowlarr (`fetch_prowlarr`) y los errores controlados (`ProwlarrError`).
+  - Creado `services/search_service.py`: aísla el pipeline de procesamiento, parseo de PTN, agrupación por obra y llamadas paralelas a TMDB (`process_results`, `resolve_titles`, `build_cache_key`).
+  - Refactorizado `routes/search.py`: ahora actúa como un controlador HTTP delgado (Thin Controller) que orquesta validación, caché, llamada al servicio y paginación.
+- **Contratos de Respuesta y Errores Consistentes**:
+  - Implementado formato uniforme de errores: `{"error": message, "error_detail": {"code": code, "message": message}}`. Compatible tanto con clientes que esperan `data.error` como con clientes que requieren código de error tipificado.
+- **Documentación Ampliada en README.md**:
+  - Tabla de variables de entorno actualizada (`PROWLARR_SEARCH_LIMIT`, `OPENSUBTITLES_*`, `DELUGE_*`).
+  - Nueva sección con tabla de endpoints de la API REST y formato de respuestas de error.
+- **Pruebas y Cobertura**:
+  - Creado `tests/test_validators.py` para verificar validaciones de parámetros de búsqueda y valores por defecto.
+  - Retrocompatibilidad asegurada con alias de funciones en `routes/search.py` para tests existentes.
+  - Suite completa: **98 tests pasando (100% verde)**.
+- **Hoja de ruta actualizada**: Marcados como completados los 6 ítems de la *Etapa 3 — Mantenibilidad* en `media-tracker-hoja-de-ruta.md`.
+
+### Qué quedó pendiente
+- Avanzar con la *Etapa 4 — Seguridad y producción* (revisión de endpoints sensibles, auditoría SSRF/redirecciones y hardening).
+
+### Decisiones tomadas
+- Se mantuvieron alias de funciones históricas en `routes/search.py` (`_detect_spanish`, `_process_results`, `_resolve_titles`, etc.) apuntando a los nuevos módulos para garantizar retrocompatibilidad total sin romper tests existentes ni mocks.

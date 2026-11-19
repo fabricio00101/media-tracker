@@ -561,12 +561,12 @@ saturar servicios externos.
 
 ### Etapa 3 --- Mantenibilidad
 
--   [ ] Extraer la lógica de búsqueda a `search_service.py`.
--   [ ] Separar la integración con Prowlarr.
--   [ ] Centralizar validaciones.
--   [ ] Definir respuestas de error consistentes.
--   [ ] Documentar endpoints y configuración.
--   [ ] Mantener o aumentar la cobertura de tests.
+-   [x] Extraer la lógica de búsqueda a `search_service.py`.
+-   [x] Separar la integración con Prowlarr.
+-   [x] Centralizar validaciones.
+-   [x] Definir respuestas de error consistentes.
+-   [x] Documentar endpoints y configuración.
+-   [x] Mantener o aumentar la cobertura de tests.
 
 **Resultado esperado:** código más fácil de entender, probar y extender.
 

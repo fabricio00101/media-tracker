@@ -53,8 +53,20 @@ Necesitarás tener instalado y corriendo en tu equipo local:
    # Tu llave de API de Prowlarr (Puedes verla en la web de Prowlarr en Settings > General).
    PROWLARR_API_KEY=tu_api_key_de_prowlarr
 
+   # Límite de resultados a solicitar a Prowlarr por búsqueda (default: 500)
+   PROWLARR_SEARCH_LIMIT=500
+
    # [Opcional] API Key de The Movie Database para obtener Posteres. Obtener en: https://www.themoviedb.org/settings/api
    TMDB_API_KEY=tu_api_key_de_tmdb_aca
+
+   # [Opcional] OpenSubtitles v3 API para descarga de subtítulos
+   OPENSUBTITLES_API_KEY=tu_api_key_opensubtitles
+   OPENSUBTITLES_USER=tu_usuario
+   OPENSUBTITLES_PASSWORD=tu_password
+
+   # [Opcional] Cliente Deluge Web UI para envío directo de magnets
+   DELUGE_URL=http://localhost:8112
+   DELUGE_PASSWORD=deluge
 
    # [Opcional] Redis para caché y rate-limiting persistentes.
    # Si se deja vacío o Redis no responde, se usa almacenamiento en memoria.
@@ -98,6 +110,27 @@ python -m PyInstaller app.spec --noconfirm
 El ejecutable se genera en `dist/app.exe`.
 
 > **Importante:** el `.exe` lee las claves del archivo `.env` ubicado en el **directorio de trabajo** desde donde se ejecuta. Si lo lanzás desde `dist/`, colocá ahí tu `.env` (por ejemplo `dist/.env`).
+
+## 📚 Endpoints de la API REST
+
+| Método | Endpoint | Parámetros Principales | Descripción |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/search` | `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `lang_filter`, `page`, `per_page` | Metabúsqueda, agrupación de torrents, metadatos TMDB y paginación. |
+| `GET` | `/api/subtitles/search` | `query`, `tmdb_id`, `season`, `episode`, `languages` | Búsqueda de subtítulos en OpenSubtitles v3 para películas y series. |
+| `GET` | `/api/subtitles/download` | `file_id` | Obtiene el enlace de descarga oficial para el archivo de subtítulo. |
+| `POST` | `/api/deluge/add` | Body JSON: `{"magnet": "magnet:?..."}` | Envía un magnet link directamente a la cola de Deluge Web UI. |
+
+### Formato de Errores
+Todos los endpoints devuelven respuestas de error consistentes:
+```json
+{
+  "error": "Mensaje legible del error",
+  "error_detail": {
+    "code": "CODIGO_ERROR_ESTANDARIZADO",
+    "message": "Detalle técnico o validación"
+  }
+}
+```
 
 ## 📸 Capturas de Pantalla
 
