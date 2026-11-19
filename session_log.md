@@ -422,3 +422,18 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Prowlarr está detenido (binario en `C:\ProgramData\Prowlarr\bin\Prowlarr.exe`, sin servicio registrado) y tenía 0 indexers.
 - Deluge no está corriendo (puerto 8112 libre); confirmar la contraseña real de la Web UI.
 - Si las claves se compartieron por un canal no privado, conviene rotarlas.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Corrección de tests de caché ante presencia de TMDB_API_KEY
+
+### Qué se completó
+- Se aislaron `test_cache_stampede_una_sola_llamada` y `test_cache_hit_no_vuelve_a_consultar` en `tests/test_search_cache.py` mockeando `routes.search.get_tmdb_info`.
+- Al estar configurado el `.env` con una `TMDB_API_KEY` válida, los hilos de prueba realizaban llamadas HTTP a TMDB interceptadas por el mock genérico de `requests.get` de Prowlarr, distorsionando el contador de llamadas esperado.
+- Se ejecutó la suite completa de tests de pytest resultando en **88/88 tests pasando**.
+
+### Qué quedó pendiente
+- Mismo estado pendiente: iniciar Prowlarr con indexers y Deluge si se van a efectuar búsquedas y descargas reales en la app.
+
+### Decisiones tomadas
+- Se aplicó `@patch("routes.search.get_tmdb_info", return_value=None)` en los tests de concurrencia y caché de Prowlarr para desacoplar completamente la resolución de metadatos de TMDB del chequeo del stampede lock y el almacenamiento en caché de los resultados de búsqueda.

@@ -34,8 +34,9 @@ def _item(i):
 # ---------------------------------------------------------------------------
 # 1) Cache stampede: N peticiones iguales -> 1 sola consulta a Prowlarr
 # ---------------------------------------------------------------------------
+@patch("routes.search.get_tmdb_info", return_value=None)
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
-def test_cache_stampede_una_sola_llamada(simple_cache_app):
+def test_cache_stampede_una_sola_llamada(mock_tmdb, simple_cache_app):
     llamadas = {"n": 0}
     contador = threading.Lock()
     codigos = []
@@ -61,8 +62,9 @@ def test_cache_stampede_una_sola_llamada(simple_cache_app):
     assert codigos == [200] * 8, codigos
 
 
+@patch("routes.search.get_tmdb_info", return_value=None)
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
-def test_cache_hit_no_vuelve_a_consultar(simple_cache_app):
+def test_cache_hit_no_vuelve_a_consultar(mock_tmdb, simple_cache_app):
     """La segunda búsqueda idéntica debe salir de la caché."""
     llamadas = {"n": 0}
 
