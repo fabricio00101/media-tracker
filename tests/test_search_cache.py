@@ -86,7 +86,7 @@ def test_cache_hit_no_vuelve_a_consultar(mock_tmdb, simple_cache_app):
 # ---------------------------------------------------------------------------
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_limit_enviado_a_prowlarr(client):
-    with patch("routes.search.requests.get", side_effect=_prowlarr_response([])) as mock_get:
+    with patch("routes.search.requests.get", return_value=_prowlarr_response([])) as mock_get:
         assert client.get("/api/search?query=zzz&min_size_gb=1").status_code == 200
 
     _url, kwargs = mock_get.call_args

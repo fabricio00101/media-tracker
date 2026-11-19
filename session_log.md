@@ -437,3 +437,32 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - Se aplicó `@patch("routes.search.get_tmdb_info", return_value=None)` en los tests de concurrencia y caché de Prowlarr para desacoplar completamente la resolución de metadatos de TMDB del chequeo del stampede lock y el almacenamiento en caché de los resultados de búsqueda.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Implementación de la Etapa 1 de la Hoja de Ruta (Estabilización)
+
+### Qué se completó
+- **Ciclo de vida de locks de búsqueda (`routes/search.py`)**: Implementado contextmanager `_inflight_lock(key)` con conteo de referencias (`refcount`). Ya no se eliminan locks arbitrariamente con `locked() == False`, previniendo colisiones de hilos en espera y garantizando que múltiples llamadas concurrentes con caché fría consulten Prowlarr una única vez.
+- **Validación estricta de parámetros HTTP en `/api/search`**:
+  - `query`: requerido, longitud máxima de 150 caracteres.
+  - `category`: validada contra lista permitida (`all`, `movies`, `tv`, `docs`), devolviendo 400 en caso contrario.
+  - `lang_filter`: validado contra lista permitida (`all`, `latino`, `castellano`, `sub`, `otros`).
+  - `min_size_gb`: validación con `math.isfinite()`, rango estricto entre 0.0 y 2000.0 GB, rechazando `NaN`, `Inf` y negativos con 400.
+  - `quality_tag`: longitud acotada a máximo 30 caracteres.
+- **Tolerancia a respuestas de Prowlarr (`_fetch_prowlarr`)**:
+  - Verificación de tipos para listas o diccionarios con clave `Results` tipo lista. Error 502 controlado ante estructuras anómalas.
+  - Filtrado defensivo de items individuales (descarte de valores nulos o sin título).
+- **Desambiguación de grupos (Películas vs Series)**: Clave de agrupación `tmdb_{media_type}_{title}_{year}` y `local_{media_type}_{title}_{year}` para evitar que obras homónimas compartan tarjeta.
+- **Pruebas añadidas**:
+  - `test_search_param_validations`: cubre todas las combinaciones inválidas (query larga, category, lang_filter, min_size_gb bounds/NaN/Inf, quality_tag).
+  - `test_prowlarr_responses_robustness`: cubre respuestas dict con Results, items nulos y respuestas de tipo inesperado (502).
+  - `test_grouping_separates_movie_and_tv`: verifica que película y serie homónimas formen grupos independientes.
+  - Suite completa: **91 tests pasando (100% verde)**.
+- **Hoja de ruta actualizada**: Marcados como completados los 5 ítems de la *Etapa 1 — Estabilización* en `media-tracker-hoja-de-ruta.md`.
+
+### Qué quedó pendiente
+- Avanzar con la *Etapa 2 — Calidad de metadatos y servicios externos* (scoring en selección de TMDB, semáforo global para TMDB, regex en detección de idiomas).
+
+### Decisiones tomadas
+- Se utilizó un context manager estándar de Python (`@contextmanager`) para el manejo del lock y refcount dentro de `_inflight_guard` para asegurar liberación simétrica en bloque `finally`.

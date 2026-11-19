@@ -1,3 +1,5 @@
+import math
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from flask import Blueprint, request, jsonify, current_app
 import threading
@@ -11,6 +13,15 @@ search_bp = Blueprint("search", __name__)
 
 DEFAULT_PER_PAGE = 16
 MAX_PER_PAGE = 50
+
+# Límites de validación de parámetros de búsqueda
+MIN_QUERY_LENGTH = 1
+MAX_QUERY_LENGTH = 150
+MIN_SIZE_GB_MIN = 0.0
+MIN_SIZE_GB_MAX = 2000.0
+MAX_QUALITY_TAG_LENGTH = 30
+ALLOWED_CATEGORIES = {"all", "movies", "tv", "docs"}
+ALLOWED_LANG_FILTERS = {"all", "latino", "castellano", "sub", "otros"}
 
 # Cantidad máxima de consultas simultáneas a TMDB.
 # TMDB limita por IP (~40 req / 10 s): pasar de acá provoca 429.
@@ -27,23 +38,35 @@ class ProwlarrError(Exception):
 
 # --- Control de concurrencia (evita el efecto "cache stampede") ----------------
 # Varias peticiones iguales a la vez deben producir UNA sola consulta a Prowlarr.
+# Administramos cada clave con un lock y un refcount para eliminarla sólo cuando
+# ningún hilo la esté utilizando ni esperando.
 _inflight_guard = threading.Lock()
-_inflight_locks = {}
+_inflight_entries = {}
 
 
-def _get_inflight_lock(key):
-    """Devuelve (creándolo si hace falta) el lock dedicado a una clave de caché."""
+@contextmanager
+def _inflight_lock(key):
+    """Context manager que asegura el ciclo de vida del lock de búsqueda.
+
+    Incrementa un refcount al solicitar el lock para la clave y sólo remueve
+    la entrada del diccionario cuando el refcount llega a 0.
+    """
     with _inflight_guard:
-        if len(_inflight_locks) > 512:
-            # Poda defensiva: nunca debe crecer sin límite. Peor caso posible,
-            # un evento de stampede extra, no un problema de corrección.
-            for stale in [k for k, l in _inflight_locks.items() if not l.locked()]:
-                _inflight_locks.pop(stale, None)
-        lock = _inflight_locks.get(key)
-        if lock is None:
-            lock = threading.Lock()
-            _inflight_locks[key] = lock
-        return lock
+        if key not in _inflight_entries:
+            _inflight_entries[key] = {"lock": threading.Lock(), "refcount": 0}
+        entry = _inflight_entries[key]
+        entry["refcount"] += 1
+
+    lock = entry["lock"]
+    lock.acquire()
+    try:
+        yield lock
+    finally:
+        lock.release()
+        with _inflight_guard:
+            entry["refcount"] -= 1
+            if entry["refcount"] <= 0:
+                _inflight_entries.pop(key, None)
 
 
 def _parse_positive_int(value, default, minimum=1, maximum=None):
@@ -165,12 +188,14 @@ def _resolve_titles(unique_titles):
         if info and info.get("title"):
             # Las entradas memoizadas antes de este cambio no traen media_type:
             # sin él, una serie se buscaría como película en OpenSubtitles.
-            info.setdefault("media_type", "tv" if is_tv else "movie")
-            group_key = f"tmdb_{info['title'].lower()}_{info.get('year', '')}"
+            media_type = info.get("media_type") or ("tv" if is_tv else "movie")
+            info["media_type"] = media_type
+            group_key = f"tmdb_{media_type}_{info['title'].lower()}_{info.get('year', '')}"
             title_to_tmdb_key[search_key] = group_key
             tmdb_cache.setdefault(group_key, info)
         else:
-            group_key = f"local_{search_key}"
+            media_type = "tv" if is_tv else "movie"
+            group_key = f"local_{media_type}_{search_key}"
             title_to_tmdb_key[search_key] = group_key
             tmdb_cache.setdefault(
                 group_key,
@@ -182,7 +207,7 @@ def _resolve_titles(unique_titles):
                     "overview": "Sinopsis no disponible en TMDB o API Key no configurada.",
                     "poster_url": None,
                     "year": year,
-                    "media_type": "tv" if is_tv else "movie",
+                    "media_type": media_type,
                 },
             )
 
@@ -223,8 +248,18 @@ def _fetch_prowlarr(query, category):
         raise ProwlarrError("Respuesta inválida de Prowlarr (no es un JSON válido).", 500)
 
     if isinstance(data, list):
-        return data
-    return data.get("Results", [])
+        items = data
+    elif isinstance(data, dict) and isinstance(data.get("Results"), list):
+        items = data["Results"]
+    else:
+        raise ProwlarrError("Estructura de respuesta inesperada de Prowlarr.", 502)
+
+    # Filtrar defensivamente sólo aquellos elementos que sean diccionarios válidos
+    valid_items = []
+    for item in items:
+        if isinstance(item, dict) and item.get("title"):
+            valid_items.append(item)
+    return valid_items
 
 
 def _process_results(
@@ -358,28 +393,6 @@ def _process_results(
 @search_bp.route("/api/search")
 @limiter.limit("30 per minute")
 def search():
-    query = request.args.get("query", "").strip()
-    category = request.args.get("category", "all").strip().lower()
-    lang_filter_raw = request.args.get("lang_filter", "all").strip().lower()
-    lang_filters = [x.strip() for x in lang_filter_raw.split(",") if x.strip()]
-
-    try:
-        min_size_gb = float(request.args.get("min_size_gb", 15))
-    except ValueError:
-        min_size_gb = 15.0
-
-    quality_tag = request.args.get("quality_tag", "").strip().lower()
-    require_hdr = request.args.get("hdr", "false").lower() == "true"
-    require_hevc = request.args.get("hevc", "false").lower() == "true"
-
-    # Paginación server-side (se pagina sobre grupos de obras, no sobre torrents)
-    page = _parse_positive_int(request.args.get("page", 1), 1)
-    per_page = _parse_positive_int(
-        request.args.get("per_page", DEFAULT_PER_PAGE),
-        DEFAULT_PER_PAGE,
-        maximum=MAX_PER_PAGE,
-    )
-
     if not config.PROWLARR_API_KEY:
         return (
             jsonify(
@@ -390,8 +403,87 @@ def search():
             500,
         )
 
+    # 1) Validación de query
+    query = request.args.get("query", "").strip()
     if not query:
         return jsonify({"error": "El nombre de la búsqueda es requerido."}), 400
+    if len(query) > MAX_QUERY_LENGTH:
+        return (
+            jsonify(
+                {"error": f"La búsqueda no puede superar los {MAX_QUERY_LENGTH} caracteres."}
+            ),
+            400,
+        )
+
+    # 2) Validación de categoría
+    category = request.args.get("category", "all").strip().lower()
+    if category not in ALLOWED_CATEGORIES:
+        return (
+            jsonify(
+                {
+                    "error": f"Categoría inválida '{category}'. Valores permitidos: {', '.join(sorted(ALLOWED_CATEGORIES))}."
+                }
+            ),
+            400,
+        )
+
+    # 3) Validación de filtros de idioma
+    lang_filter_raw = request.args.get("lang_filter", "all").strip().lower()
+    lang_filters = [x.strip() for x in lang_filter_raw.split(",") if x.strip()]
+    if not lang_filters:
+        lang_filters = ["all"]
+    invalid_langs = [l for l in lang_filters if l not in ALLOWED_LANG_FILTERS]
+    if invalid_langs:
+        return (
+            jsonify(
+                {
+                    "error": f"Filtro de idioma inválido: {', '.join(invalid_langs)}. Valores permitidos: {', '.join(sorted(ALLOWED_LANG_FILTERS))}."
+                }
+            ),
+            400,
+        )
+
+    # 4) Validación de tamaño mínimo
+    raw_min_size = request.args.get("min_size_gb", 15)
+    try:
+        min_size_gb = float(raw_min_size)
+        if not math.isfinite(min_size_gb) or min_size_gb < MIN_SIZE_GB_MIN or min_size_gb > MIN_SIZE_GB_MAX:
+            return (
+                jsonify(
+                    {
+                        "error": f"El tamaño mínimo debe ser un número finito entre {MIN_SIZE_GB_MIN} y {MIN_SIZE_GB_MAX} GB."
+                    }
+                ),
+                400,
+            )
+    except (ValueError, TypeError):
+        return (
+            jsonify({"error": "El parámetro min_size_gb debe ser un valor numérico válido."}),
+            400,
+        )
+
+    # 5) Validación de calidad y flags adicionales
+    quality_tag = request.args.get("quality_tag", "").strip().lower()
+    if len(quality_tag) > MAX_QUALITY_TAG_LENGTH:
+        return (
+            jsonify(
+                {
+                    "error": f"El filtro de calidad no puede superar los {MAX_QUALITY_TAG_LENGTH} caracteres."
+                }
+            ),
+            400,
+        )
+
+    require_hdr = request.args.get("hdr", "false").lower() == "true"
+    require_hevc = request.args.get("hevc", "false").lower() == "true"
+
+    # Paginación server-side (se pagina sobre grupos de obras, no sobre torrents)
+    page = _parse_positive_int(request.args.get("page", 1), 1)
+    per_page = _parse_positive_int(
+        request.args.get("per_page", DEFAULT_PER_PAGE),
+        DEFAULT_PER_PAGE,
+        maximum=MAX_PER_PAGE,
+    )
 
     cache_key = _build_cache_key(
         query,
@@ -407,7 +499,7 @@ def search():
     final_results = cache.get(cache_key)
 
     if final_results is None:
-        with _get_inflight_lock(cache_key):
+        with _inflight_lock(cache_key):
             # 2) Doble chequeo: mientras esperábamos el lock, otro hilo pudo
             #    haber completado exactamente la misma búsqueda
             final_results = cache.get(cache_key)
