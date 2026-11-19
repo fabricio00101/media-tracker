@@ -43,6 +43,14 @@ def _is_safe_remote_url(url):
 @deluge_bp.route("/api/deluge/add", methods=["POST"])
 @limiter.limit("10 per minute")
 def add_to_deluge():
+    # Autorización opcional por token: si se configuró API_SECRET_TOKEN, se exige en header
+    if config.API_SECRET_TOKEN:
+        auth_header = request.headers.get("X-Api-Token") or request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            auth_header = auth_header[7:].strip()
+        if auth_header != config.API_SECRET_TOKEN:
+            return jsonify({"error": "No autorizado para interactuar con Deluge."}), 403
+
     if not config.DELUGE_URL or not config.DELUGE_PASSWORD:
         return (
             jsonify(

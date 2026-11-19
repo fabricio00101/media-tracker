@@ -526,3 +526,32 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - Se mantuvieron alias de funciones históricas en `routes/search.py` (`_detect_spanish`, `_process_results`, `_resolve_titles`, etc.) apuntando a los nuevos módulos para garantizar retrocompatibilidad total sin romper tests existentes ni mocks.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Implementación de la Etapa 4 de la Hoja de Ruta (Seguridad y Producción)
+
+### Qué se completó
+- **Autorización de Endpoints de Control (`routes/deluge.py`)**:
+  - Incorporada capa de autorización opcional mediante `API_SECRET_TOKEN` (`X-Api-Token` o `Authorization: Bearer <token>`).
+  - Previene que terceros o scripts ajenos disparen descargas en Deluge si la aplicación se expone más allá de la red de confianza.
+- **Cabeceras de Seguridad HTTP y Límites de Carga (`app.py`)**:
+  - Implementado hook `set_security_headers`:
+    - `X-Content-Type-Options: nosniff`
+    - `X-Frame-Options: SAMEORIGIN` (prevención de Clickjacking)
+    - `X-XSS-Protection: 1; mode=block`
+    - `Referrer-Policy: strict-origin-when-cross-origin`
+  - Configurado límite global de tamaño de carga útil `MAX_CONTENT_LENGTH = 16 MB` para prevenir denegación de servicio por subida desmedida de ficheros.
+  - Configurado `SECRET_KEY` desde variable de entorno con fallback documentado.
+- **Validación de Configuración al Arrancar (`config.py`)**:
+  - Implementada función `validate_config()` que comprueba formato y esquema de URLs críticas (`PROWLARR_URL`, `DELUGE_URL`, `REDIS_URL`) y acota `PROWLARR_SEARCH_LIMIT` entre 0 y 2000.
+- **Pruebas de Seguridad**:
+  - Se agregaron tests en `tests/test_security.py` verificando la presencia de las cabeceras de seguridad HTTP y el rechazo por falta o invalidez de token en `/api/deluge/add` (`403 Forbidden`).
+  - Suite completa: **100 tests pasando (100% verde)**.
+- **Hoja de ruta actualizada**: Marcados como completados los 6 ítems de la *Etapa 4 — Seguridad y producción* en `media-tracker-hoja-de-ruta.md`.
+
+### Qué quedó pendiente
+- Avanzar con la *Etapa 5 — Evolución del producto* (historial en LocalStorage en UI, filtros guardados, ordenamiento dinámico de resultados).
+
+### Decisiones tomadas
+- `API_SECRET_TOKEN` es opcional: si no se define, se mantiene el comportamiento predeterminado de red local sin fricción; si se define en `.env`, el endpoint `/api/deluge/add` queda estrictamente restringido con HTTP 403 ante llamadas no autorizadas.

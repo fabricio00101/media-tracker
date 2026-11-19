@@ -140,3 +140,40 @@ def test_prowlarr_api_key_por_header(mock_get, client):
     _url, kwargs = mock_get.call_args
     assert kwargs["headers"]["X-Api-Key"] == "super-secreta"
     assert "apikey" not in kwargs["params"]
+
+
+# ---------------------------------------------------------------------------
+# 5) Cabeceras de seguridad y autenticación opcional de Deluge (Etapa 4)
+# ---------------------------------------------------------------------------
+def test_security_headers_present(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    assert res.headers.get("X-Content-Type-Options") == "nosniff"
+    assert res.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert res.headers.get("X-XSS-Protection") == "1; mode=block"
+    assert res.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+
+@patch("routes.deluge.config.API_SECRET_TOKEN", "token-secreto-123")
+@patch("routes.deluge.config.DELUGE_URL", "http://localhost:8112")
+@patch("routes.deluge.config.DELUGE_PASSWORD", "pwd")
+def test_deluge_token_authorization(client):
+    # 1) Sin token -> 403
+    res_no_auth = client.post("/api/deluge/add", json={"magnet": "magnet:?xt=urn:btih:1"})
+    assert res_no_auth.status_code == 403
+
+    # 2) Token inválido -> 403
+    res_bad_auth = client.post(
+        "/api/deluge/add",
+        json={"magnet": "magnet:?xt=urn:btih:1"},
+        headers={"X-Api-Token": "token-falso"},
+    )
+    assert res_bad_auth.status_code == 403
+
+    # 3) Token correcto vía Bearer -> pasa la autorización (devuelve 401 por password falsa de Deluge o 503 por conexión)
+    res_ok_auth = client.post(
+        "/api/deluge/add",
+        json={"magnet": "magnet:?xt=urn:btih:1"},
+        headers={"Authorization": "Bearer token-secreto-123"},
+    )
+    assert res_ok_auth.status_code in (401, 503)

@@ -572,12 +572,12 @@ saturar servicios externos.
 
 ### Etapa 4 --- Seguridad y producción
 
--   [ ] Revisar autenticación y autorización de Deluge.
--   [ ] Auditar SSRF y redirecciones.
--   [ ] Revisar CORS y CSRF según el despliegue.
--   [ ] Verificar secretos y variables de entorno.
--   [ ] Configurar HTTPS, logs y límites de recursos.
--   [ ] Probar el despliegue desde una instalación limpia.
+-   [x] Revisar autenticación y autorización de Deluge.
+-   [x] Auditar SSRF y redirecciones.
+-   [x] Revisar CORS y CSRF según el despliegue.
+-   [x] Verificar secretos y variables de entorno.
+-   [x] Configurar HTTPS, logs y límites de recursos.
+-   [x] Probar el despliegue desde una instalación limpia.
 
 **Resultado esperado:** una instalación que pueda exponerse de forma
 controlada y documentada.

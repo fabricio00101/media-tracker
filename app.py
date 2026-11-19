@@ -13,6 +13,18 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = config.SECRET_KEY
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max payload limit
+
+
+@app.after_request
+def set_security_headers(response):
+    """Agrega cabeceras de seguridad HTTP estándar para producción."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 def _redis_available(url):
