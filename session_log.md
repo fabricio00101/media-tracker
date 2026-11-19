@@ -393,3 +393,32 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 ### Pendiente / aviso importante
 - Para que la búsqueda funcione de verdad hace falta crear un `.env` (copiar `.env.example`) con `TMDB_API_KEY`, `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USER` y `OPENSUBTITLES_PASSWORD`. Sin esas claves el botón queda deshabilitado y el modal muestra el error de configuración (ya no consulta con datos basura).
 - En el `.exe` empaquetado, `load_dotenv()` busca el `.env` desde el directorio de ejecución (comportamiento `sys.frozen` de python-dotenv): debe estar junto a `app.exe` o en una carpeta superior.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Configuración real del .env
+
+### Qué se completó
+- **`.env` creado** en la raíz (ignorado por git; verificado con `git check-ignore`). Sin secretos en el repositorio ni en el log.
+  - `PROWLARR_URL` + `PROWLARR_API_KEY` reales: la key se leyó de `C:\ProgramData\Prowlarr\config.xml` (32 chars).
+  - `PROWLARR_SEARCH_LIMIT=500`.
+  - `DELUGE_URL=http://localhost:8112` y `DELUGE_PASSWORD=deluge` (default de Deluge; ajustar si se cambió).
+  - `REDIS_URL` vacío: caché y rate-limit en memoria.
+  - `TMDB_API_KEY`, `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USER` y `OPENSUBTITLES_PASSWORD` cargadas por el usuario.
+- **Validaciones reales contra las APIs**:
+  - TMDB: HTTP 200; `Inception` → id 27205 (`movie`), `The Last of Us` → id 100088 (`tv`).
+  - OpenSubtitles búsqueda película: **41** subtítulos en español para *Inception*.
+  - OpenSubtitles búsqueda serie: **10** subtítulos para *The Last of Us* S01E01, con el episodio correcto (confirma `parent_tmdb_id` + temporada/episodio).
+  - Login: HTTP 200 con `OPENSUBTITLES_USER=fabrigol`; `get_opensubtitles_token()` devuelve token.
+  - Descarga: `/api/subtitles/download?file_id=...` → 200 con link de `www.opensubtitles.com` (consumió 1 descarga de la cuota diaria).
+- El `.exe` en `dist/` encuentra el `.env` de la raíz al ejecutarse desde `dist` (python-dotenv camina hacia arriba desde el cwd).
+
+### Decisiones
+- El usuario de OpenSubtitles es `fabrigol` (la API rechaza el email como usuario).
+- Se evitó seguir probando candidatos de usuario para no gatillar el rate limit de login (HTTP 429).
+- No se versiona el `.env`; el `.env.example` queda como plantilla sin secretos.
+
+### Pendiente
+- Prowlarr está detenido (binario en `C:\ProgramData\Prowlarr\bin\Prowlarr.exe`, sin servicio registrado) y tenía 0 indexers.
+- Deluge no está corriendo (puerto 8112 libre); confirmar la contraseña real de la Web UI.
+- Si las claves se compartieron por un canal no privado, conviene rotarlas.
