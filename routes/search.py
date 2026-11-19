@@ -1,3 +1,4 @@
+import re
 import math
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
@@ -99,44 +100,73 @@ def _build_cache_key(
 
 
 def _detect_spanish(title_lower):
-    """Detecta el soporte de español a partir del título en minúsculas."""
-    if any(
-        tag in title_lower
-        for tag in [
-            "latino", "dual-lat", "es-mx", "spa-lat", "lat", "argentina",
-            "mexic", "colombia", "chile", "peru", "[arg]", "[mex]", "(arg)", "(mex)",
-        ]
-    ):
+    """Detecta el soporte de español a partir del título en minúsculas.
+
+    Usa límites de palabra y patrones para evitar falsos positivos con substrings.
+    """
+    # Patrones para Español Latino
+    latino_patterns = [
+        r"\blatino\b",
+        r"\bdual[-_ ]lat\b",
+        r"\bes[-_ ]mx\b",
+        r"\bspa[-_ ]lat\b",
+        r"\blatam\b",
+        r"\bargentina\b",
+        r"\bmexic[ao]\b",
+        r"\bchile\b",
+        r"\bperu\b",
+        r"\[arg\]",
+        r"\[mex\]",
+        r"\(arg\)",
+        r"\(mex\)",
+        r"\blat\b",
+    ]
+    if any(re.search(pat, title_lower) for pat in latino_patterns):
         return "Latino"
-    if any(
-        tag in title_lower
-        for tag in [
-            "castellano", "es-es", "spanish", "español", "españa", "spain",
-            "[esp]", "(esp)",
-        ]
-    ):
+
+    # Patrones para Castellano (España)
+    castellano_patterns = [
+        r"\bcastellano\b",
+        r"\bes[-_ ]es\b",
+        r"\bspanish\b",
+        r"\bespañol\b",
+        r"\bespana\b",
+        r"\bespaña\b",
+        r"\bspain\b",
+        r"\[esp\]",
+        r"\(esp\)",
+    ]
+    if any(re.search(pat, title_lower) for pat in castellano_patterns):
         return "Castellano"
-    if any(
-        tag in title_lower
-        for tag in ["subs", "subtitulado", "vose", "multi-sub", "sub español"]
-    ):
+
+    # Patrones para Subtitulado
+    sub_patterns = [
+        r"\bsubs?\b",
+        r"\bsubtitulado\b",
+        r"\bvose\b",
+        r"\bmulti[-_ ]subs?\b",
+        r"\bsub\s+español\b",
+        r"\bsub[-_ ]es\b",
+    ]
+    if any(re.search(pat, title_lower) for pat in sub_patterns):
         return "Subtitulado"
+
     return None
 
 
 def _detect_audio(title_lower):
     """Detecta el formato de audio a partir del título en minúsculas."""
-    if any(tag in title_lower for tag in ["atmos", "truehd", "true-hd"]):
+    if re.search(r"\b(atmos|truehd|true-hd)\b", title_lower):
         return "Dolby Atmos / TrueHD"
-    if any(tag in title_lower for tag in ["dts-hd", "dts:x", "dts-x", "dtshd"]):
+    if re.search(r"\b(dts-hd|dts:x|dts-x|dtshd)\b", title_lower):
         return "DTS-HD / X"
-    if any(tag in title_lower for tag in ["eac3", "ddp5.1", "ddp", "dd+"]):
+    if re.search(r"\b(eac3|ddp5\.1|ddp|dd\+)\b", title_lower):
         return "Dolby Digital Plus"
-    if any(tag in title_lower for tag in ["dd5.1", "dolby", "ac3"]):
+    if re.search(r"\b(dd5\.1|dolby|ac3)\b", title_lower):
         return "Dolby Digital"
-    if "dts" in title_lower:
+    if re.search(r"\bdts\b", title_lower):
         return "DTS"
-    if "aac" in title_lower:
+    if re.search(r"\baac(\d|\b)", title_lower):
         return "AAC"
     return None
 

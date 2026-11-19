@@ -169,8 +169,35 @@ def test_prowlarr_responses_robustness(client):
 
 
 # ---------------------------------------------------------------------------
-# Agrupación separada para películas y series
+# Detección de idiomas y audio (Etapa 2: Word boundaries y sin falsos positivos)
 # ---------------------------------------------------------------------------
+def test_detect_spanish_word_boundaries():
+    from routes.search import _detect_spanish
+
+    # Falsos positivos que antes podían coincidir con "lat"
+    assert _detect_spanish("blade.runner.final.cut.1080p") is None
+    assert _detect_spanish("plateau.2022.bluray") is None
+    assert _detect_spanish("relativity.1080p") is None
+
+    # Coincidencias legítimas
+    assert _detect_spanish("matrix.1999.latino.1080p") == "Latino"
+    assert _detect_spanish("matrix.1999.lat.1080p") == "Latino"
+    assert _detect_spanish("matrix.1999.[arg].1080p") == "Latino"
+    assert _detect_spanish("matrix.1999.castellano.1080p") == "Castellano"
+    assert _detect_spanish("matrix.1999.es-es.1080p") == "Castellano"
+    assert _detect_spanish("matrix.1999.vose.1080p") == "Subtitulado"
+    assert _detect_spanish("matrix.1999.subtitulado.1080p") == "Subtitulado"
+
+
+def test_detect_audio_patterns():
+    from routes.search import _detect_audio
+
+    assert _detect_audio("movie.2023.truehd.atmos.mkv") == "Dolby Atmos / TrueHD"
+    assert _detect_audio("movie.2023.dts-hd.ma.mkv") == "DTS-HD / X"
+    assert _detect_audio("movie.2023.eac3.mkv") == "Dolby Digital Plus"
+    assert _detect_audio("movie.2023.dd5.1.mkv") == "Dolby Digital"
+    assert _detect_audio("movie.2023.aac2.0.mkv") == "AAC"
+    assert _detect_audio("movie.2023.flac.mkv") is None
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_grouping_separates_movie_and_tv(client):
     items = [

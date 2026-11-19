@@ -466,3 +466,35 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - Se utilizó un context manager estándar de Python (`@contextmanager`) para el manejo del lock y refcount dentro de `_inflight_guard` para asegurar liberación simétrica en bloque `finally`.
+
+---
+
+## Sesión 2026-11-19 (cont.) — Implementación de la Etapa 2 de la Hoja de Ruta (Calidad de Metadatos y Servicios Externos)
+
+### Qué se completó
+- **Scoring y Selección de Candidatos en TMDB (`services/tmdb.py`)**:
+  - Implementada función `_normalize_title()` quitando acentos y signos para comparaciones semánticas.
+  - Implementado sistema de puntuación en `_score_tmdb_candidate()` evaluando:
+    - Coincidencia exacta de título o título original (+60 / +55 pts).
+    - Coincidencia de año con tolerancia (+30 pts si coincide, penalizaciones proporcionales ante diferencias mayores).
+    - Desempate por volumen de votos (+10 / +5 pts).
+  - Filtro por umbral mínimo (`score >= 30`): si los resultados devueltos por TMDB no guardan relación con la búsqueda, se descartan en vez de forzar el primer resultado arbitrario.
+- **Límite Global de Concurrencia y Resiliencia en TMDB (`services/tmdb.py`)**:
+  - `tmdb_semaphore = threading.Semaphore(6)` limita las consultas concurrentes salientes a TMDB a nivel de toda la aplicación.
+  - Manejo de respuestas `HTTP 429` (Too Many Requests) con reintento automático y backoff exponencial breve (`time.sleep(0.5 * attempt)`).
+- **Detección Robusta de Idiomas y Audio (`routes/search.py`)**:
+  - Se sustituyeron las búsquedas de subcadenas simples por expresiones regulares con límites de palabra (`\b`).
+  - Previene falsos positivos en títulos con palabras comunes en inglés como `blade.runner.final.cut` o `plateau` (que antes disparaban `lat` -> Latino).
+  - Normalización de variantes en audio (`atmos`, `truehd`, `dts-hd`, `eac3`, `dd5.1`, `aac`).
+- **Pruebas y Suite de Tests**:
+  - `tests/test_tmdb.py`: pruebas para desempate de remakes por año (`Dune 1984` vs `2021`), descarte de candidatos irrelevantes y reintento exitoso ante 429.
+  - `tests/test_search.py`: pruebas unitarias para `_detect_spanish` con word boundaries (ausencia de falsos positivos) y `_detect_audio`.
+  - Suite completa: **96 tests pasando (100% verde)**.
+- **Hoja de ruta actualizada**: Marcados como completados los 5 ítems de la *Etapa 2 — Calidad de metadatos y servicios externos* en `media-tracker-hoja-de-ruta.md`.
+
+### Qué quedó pendiente
+- Avanzar con la *Etapa 3 — Mantenibilidad* (extracción de lógica de búsqueda a `search_service.py` y `prowlarr_service.py`, centralización de validaciones).
+
+### Decisiones tomadas
+- Se mantuvo `TMDB_CONCURRENCY_LIMIT = 6` para respetar el límite de 40 requests cada 10 segundos de la API pública de TMDB por IP.
+- Si ningún candidato de TMDB alcanza el score mínimo de 30, `get_tmdb_info` retorna `None` para que el backend use fallback a información local en lugar de asociar un póster o sinopsis equivocada.

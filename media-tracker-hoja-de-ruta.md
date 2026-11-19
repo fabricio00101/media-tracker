@@ -550,11 +550,11 @@ ante entradas incorrectas y solicitudes simultáneas.
 
 ### Etapa 2 --- Calidad de metadatos y servicios externos
 
--   [ ] Mejorar la selección de candidatos de TMDB.
--   [ ] Añadir pruebas para títulos ambiguos, remakes y años diferentes.
--   [ ] Implementar límite global de concurrencia.
--   [ ] Manejar HTTP 429 y fallos temporales.
--   [ ] Revisar detección de idiomas y audio.
+-   [x] Mejorar la selección de candidatos de TMDB.
+-   [x] Añadir pruebas para títulos ambiguos, remakes y años diferentes.
+-   [x] Implementar límite global de concurrencia.
+-   [x] Manejar HTTP 429 y fallos temporales.
+-   [x] Revisar detección de idiomas y audio.
 
 **Resultado esperado:** resultados más precisos y menor riesgo de
 saturar servicios externos.
