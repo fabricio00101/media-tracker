@@ -11,6 +11,7 @@ Una aplicación web ultrarrápida y estéticamente premium diseñada para entusi
 - **Copiar Magnet con un Clic**: Interfaz sin fricciones. Un solo botón para abrir el Torrent o un botón dedicado para copiar el Magnet al portapapeles y pasarlo por WhatsApp/Telegram.
 - **Soporte FlareSolverr Multiplicado**: Totalmente compatible con indexadores pesados (como 1337x) que requieren bypass de Cloudflare (los timeouts de conexión están ajustados tolerar las demoras sin problemas).
 - **Indicadores de Idioma**: Detección inteligente si el archivo contiene audio "Latino", "Castellano" o "Subtitulado".
+- **Estimación Técnica por Release**: A partir del nombre del torrent y de la duración real de TMDB se estiman fuente (REMUX/BluRay/WEB-DL), códec, bits de color, HDR, formato de audio, bitrate y **bits por píxel (bpp)**, con un veredicto de calidad (Excelente / Muy buena / Correcta / Floja). Permite filtrar por calidad mínima, excluir HDR y ordenar por mejor calidad sin descargar nada.
 
 ## 🚀 Requisitos
 

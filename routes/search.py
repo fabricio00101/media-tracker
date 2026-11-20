@@ -11,6 +11,7 @@ from services.search_service import (
     build_cache_key,
     process_results,
     resolve_titles,
+    sort_results,
     DEFAULT_PER_PAGE,
     MAX_PER_PAGE,
 )
@@ -89,6 +90,9 @@ def search():
     require_hdr = params["require_hdr"]
     require_hevc = params["require_hevc"]
     lang_filters = params["lang_filters"]
+    sdr_only = params["sdr_only"]
+    min_bpp = params["min_bpp"]
+    sort = params["sort"]
     page = params["page"]
     per_page = params["per_page"]
 
@@ -100,6 +104,8 @@ def search():
         require_hdr,
         require_hevc,
         lang_filters,
+        min_bpp,
+        sdr_only,
     )
 
     # 1) Lectura rápida: si ya está en caché no se toca ningún lock
@@ -126,10 +132,16 @@ def search():
                     require_hdr,
                     require_hevc,
                     lang_filters,
+                    min_bpp,
+                    sdr_only,
                 )
 
                 # Guardar el conjunto completo (la paginación no altera la clave)
                 cache.set(cache_key, final_results, timeout=config.CACHE_5MIN)
+
+    # El orden se aplica fuera de la caché: un mismo conjunto sirve para
+    # cualquier criterio sin duplicar entradas en memoria.
+    final_results = sort_results(final_results, sort)
 
     # 3) Paginar los grupos procesados
     total_groups = len(final_results)

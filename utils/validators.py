@@ -10,6 +10,9 @@ MIN_SIZE_GB_MAX = 2000.0
 MAX_QUALITY_TAG_LENGTH = 30
 ALLOWED_CATEGORIES = {"all", "movies", "tv", "docs"}
 ALLOWED_LANG_FILTERS = {"all", "latino", "castellano", "sub", "otros"}
+ALLOWED_SORTS = {"seeders_desc", "bpp_desc", "year_desc", "year_asc", "title_asc"}
+MIN_BPP_MIN = 0.0
+MIN_BPP_MAX = 1.0
 
 
 class ValidationError(Exception):
@@ -108,6 +111,36 @@ def validate_search_params(args):
 
     require_hdr = args.get("hdr", "false").lower() == "true"
     require_hevc = args.get("hevc", "false").lower() == "true"
+    sdr_only = args.get("sdr_only", "false").lower() == "true"
+
+    # 6) Calidad mínima estimada (bits por píxel) y criterio de orden
+    raw_min_bpp = args.get("min_bpp", 0)
+    try:
+        min_bpp = float(raw_min_bpp)
+        if (
+            not math.isfinite(min_bpp)
+            or min_bpp < MIN_BPP_MIN
+            or min_bpp > MIN_BPP_MAX
+        ):
+            raise ValidationError(
+                f"La calidad mínima (min_bpp) debe estar entre {MIN_BPP_MIN} y {MIN_BPP_MAX}.",
+                code="INVALID_BPP_RANGE",
+                status=400,
+            )
+    except (ValueError, TypeError):
+        raise ValidationError(
+            "El parámetro min_bpp debe ser un valor numérico válido.",
+            code="INVALID_BPP_FORMAT",
+            status=400,
+        )
+
+    sort = args.get("sort", "seeders_desc").strip().lower()
+    if sort not in ALLOWED_SORTS:
+        raise ValidationError(
+            f"Criterio de orden inválido '{sort}'. Valores permitidos: {', '.join(sorted(ALLOWED_SORTS))}.",
+            code="INVALID_SORT",
+            status=400,
+        )
 
     page = parse_positive_int(args.get("page", 1), 1)
     per_page = parse_positive_int(
@@ -124,6 +157,9 @@ def validate_search_params(args):
         "quality_tag": quality_tag,
         "require_hdr": require_hdr,
         "require_hevc": require_hevc,
+        "sdr_only": sdr_only,
+        "min_bpp": min_bpp,
+        "sort": sort,
         "page": page,
         "per_page": per_page,
     }

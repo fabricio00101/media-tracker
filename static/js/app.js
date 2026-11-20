@@ -472,6 +472,74 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         return `<span class="px-2 py-1 flex-shrink-0 ${colorClass} text-[10px] font-bold rounded border lowercase inline-flex items-center" title="Soporte detectado en el título">${icon}${escapeHtml(supportType)}</span>`;
       };
 
+      // Colores del veredicto de calidad estimada (bpp)
+      const TECH_TIER_CLASSES = {
+        remux: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+        excelente: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        muy_bueno: "bg-green-500/10 text-green-400 border-green-500/20",
+        correcto: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+        flojo: "bg-red-500/10 text-red-400 border-red-500/20",
+        sin_datos: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+      };
+
+      const techChip = (text, extraClass, title) =>
+        `<span class="px-2 py-1 flex-shrink-0 ${extraClass} text-[10px] font-bold rounded border"${
+          title ? ` title="${escapeHtml(title)}"` : ""
+        }>${escapeHtml(text)}</span>`;
+
+      // Badges técnicos estimados a partir del nombre del release + duración TMDB
+      const getTechBadges = (t) => {
+        const tech = t.tech;
+        if (!tech) return "";
+        const chips = [];
+
+        if (tech.source) {
+          chips.push(
+            techChip(tech.source, "bg-indigo-500/10 text-indigo-300 border-indigo-500/20", "Fuente inferida del nombre"),
+          );
+        }
+        if (tech.bit_depth) {
+          chips.push(
+            techChip(`${tech.bit_depth}-bit`, "bg-teal-500/10 text-teal-300 border-teal-500/20", "Profundidad de color indicada en el nombre"),
+          );
+        }
+        if (tech.hdr) {
+          chips.push(
+            techChip(tech.hdr, "bg-sky-500/10 text-sky-300 border-sky-500/20", "Rango dinámico HDR detectado en el nombre"),
+          );
+        }
+        if (!t.audio_support && tech.audio) {
+          chips.push(
+            techChip(tech.audio, "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", "Formato de audio inferido del nombre"),
+          );
+        }
+        if (typeof tech.mbps === "number") {
+          chips.push(
+            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-gray-500/10 text-gray-300 border-gray-500/20", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
+          );
+        }
+        if (typeof tech.bpp === "number") {
+          chips.push(
+            techChip(
+              `${tech.bpp.toFixed(3)} bpp`,
+              "bg-gray-500/10 text-gray-300 border-gray-500/20",
+              `Bits por píxel estimados con ${tech.fps} fps asumidos. Más alto = mejor calidad por tamaño.`,
+            ),
+          );
+        }
+        if (tech.tier_label && tech.tier !== "sin_datos") {
+          const tierClass = TECH_TIER_CLASSES[tech.tier] || TECH_TIER_CLASSES.sin_datos;
+          const tierTitle =
+            tech.tier === "remux"
+              ? "Copia directa del disco (REMUX): máxima calidad, sin recompresión"
+              : tech.bpp === null
+                ? "Sin duración de TMDB: no se pudo estimar el bpp"
+                : `Calidad estimada (${Math.round(tech.score)}/100). Estimación, no medición del archivo.`;
+          chips.push(techChip(tech.tier_label, tierClass, tierTitle));
+        }
+        return chips.join("");
+      };
+
       // Episodios individuales presentes en un grupo (para buscar subtítulos).
       // Los packs de temporada completa no traen episodio y se omiten.
       const buildEpisodeList = (torrents) => {
@@ -572,6 +640,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                                         ${t.codec ? `<span class="px-2 py-1 bg-gray-700 text-gray-300 flex-shrink-0 text-[10px] rounded">${escapeHtml(t.codec)}</span>` : ""}
                                         ${getSpanishBadge(t.spanish_support)}
                                         ${t.audio_support ? `<span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border-cyan-500/20 flex-shrink-0 text-[10px] font-bold rounded border inline-flex items-center" title="Formato de audio detectado"><i class="fas fa-volume-up mr-1" aria-hidden="true"></i>${escapeHtml(t.audio_support)}</span>` : ""}
+                                        ${getTechBadges(t)}
                                         <span class="text-blue-400 font-bold ml-auto flex-shrink-0">${escapeHtml(t.size_gb)} GB</span>
                                     </div>
                                     <p class="text-sm text-gray-400 mb-2 truncate" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</p>
@@ -623,6 +692,10 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             "all";
           const requireHdr = document.getElementById("filterHDR").checked;
           const requireHevc = document.getElementById("filterHEVC").checked;
+          const sdrOnly = document.getElementById("filterSDR")?.checked || false;
+          const minBpp = document.getElementById("filterMinBpp")?.value || "0";
+          const sortMode =
+            document.getElementById("sortSelector")?.value || "seeders_desc";
 
           const btnText = document.getElementById("btnText");
           const btnSpinner = document.getElementById("btnSpinner");
@@ -694,6 +767,9 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               category: category,
               hdr: requireHdr,
               hevc: requireHevc,
+              sdr_only: sdrOnly,
+              min_bpp: minBpp,
+              sort: sortMode,
               lang_filter: langFilterVal,
               page: 1,
               per_page: RESULTS_PER_PAGE,
@@ -761,6 +837,14 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             const selector = document.getElementById("sortSelector");
             const sortMode = selector ? selector.value : "seeders_desc";
 
+            const maxScore = (group) =>
+                Math.max(
+                    ...(group.visibleTorrents || []).map((t) =>
+                        t.tech && typeof t.tech.score === "number" ? t.tech.score : 0,
+                    ),
+                    0,
+                );
+
             globalCurrentResults.sort((a, b) => {
                 if (sortMode === "year_desc") {
                     return (parseInt(b.info.year) || 0) - (parseInt(a.info.year) || 0);
@@ -768,6 +852,8 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                     return (parseInt(a.info.year) || 9999) - (parseInt(b.info.year) || 9999);
                 } else if (sortMode === "title_asc") {
                     return (a.info.title || "").localeCompare(b.info.title || "");
+                } else if (sortMode === "bpp_desc") {
+                    return maxScore(b) - maxScore(a);
                 } else {
                     // seeders_desc por defecto
                     const maxA = Math.max(...(a.visibleTorrents || []).map(t => t.seeders || 0), 0);
@@ -777,13 +863,11 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             });
         }
 
+        // Al cambiar el criterio se repite la búsqueda: la paginación es del
+        // servidor, así que ordenar solo lo ya cargado daría resultados engañosos.
         document.getElementById("sortSelector")?.addEventListener("change", () => {
-            if (globalCurrentResults.length === 0) return;
-            applyClientSorting();
-            globalRenderedCount = 0;
-            const resultsList = document.getElementById("resultsList");
-            if (resultsList) resultsList.innerHTML = "";
-            renderNextBatch();
+            if (!globalSearchParams) return;
+            document.getElementById("searchForm").requestSubmit();
         });
 
         // FUNCIÓN DE RENDERIZADO POR LOTES (LAZY LOADING MANUAL)
@@ -1103,6 +1187,7 @@ const exportResults = (format) => {
                 season: t.season,
                 episode: t.episode,
                 magnet: t.magnet,
+                tech: t.tech,
             })),
         }));
         downloadBlob(
@@ -1125,6 +1210,12 @@ const exportResults = (format) => {
         "Codec",
         "Idioma",
         "Audio",
+        "Fuente",
+        "Bits",
+        "HDR",
+        "Mbps",
+        "bpp",
+        "Veredicto",
         "Temporada completa",
         "Magnet",
     ];
@@ -1132,6 +1223,7 @@ const exportResults = (format) => {
 
     globalRawResults.forEach((group) => {
         (group.torrents || []).forEach((t) => {
+            const tech = t.tech || {};
             rows.push(
                 [
                     group.group_info?.title,
@@ -1144,6 +1236,12 @@ const exportResults = (format) => {
                     t.codec,
                     t.spanish_support || "",
                     t.audio_support || "",
+                    tech.source || "",
+                    tech.bit_depth || "",
+                    tech.hdr || "",
+                    typeof tech.mbps === "number" ? tech.mbps : "",
+                    typeof tech.bpp === "number" ? tech.bpp : "",
+                    tech.tier_label || "",
                     t.is_full_season ? "Sí" : "No",
                     t.magnet || "",
                 ]

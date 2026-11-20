@@ -229,3 +229,180 @@ def test_grouping_separates_movie_and_tv(client):
         assert len(groups) == 2
         media_types = {g["group_info"]["media_type"] for g in groups}
         assert media_types == {"movie", "tv"}
+
+
+# ---------------------------------------------------------------------------
+# Estimación técnica (bpp) y filtros derivados
+# ---------------------------------------------------------------------------
+def _mock_tmdb_con_runtime(title, year=None, is_tv=False):
+    return {
+        "id": abs(hash(title)) % 100000,
+        "title": title,
+        "overview": "Overview",
+        "poster_url": None,
+        "year": year or "2023",
+        "media_type": "tv" if is_tv else "movie",
+        "runtime": 100,
+    }
+
+
+def _mock_prowlarr_items(items):
+    res = MagicMock()
+    res.status_code = 200
+    res.json.return_value = items
+    return res
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_search_incluye_estimacion_tecnica(client):
+    items = [
+        {
+            "title": "Peli.2023.1080p.WEB-DL.HEVC.x265.10bit.DDP5.1-GRP",
+            "size": 4 * 1024**3,
+            "seeders": 5,
+            "indexer": "T1",
+            "magnetUrl": "magnet:x",
+        }
+    ]
+    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+         patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
+        r = client.get("/api/search?query=Peli&min_size_gb=1")
+        assert r.status_code == 200
+
+    tech = r.get_json()["results"][0]["torrents"][0]["tech"]
+    assert tech["source"] == "WEB-DL"
+    assert tech["video_codec"] == "HEVC"
+    assert tech["bit_depth"] == 10
+    assert tech["audio"] == "DD+ 5.1"
+    assert tech["mbps"] == 5.73
+    assert tech["bpp"] == 0.115
+    assert tech["tier"] == "muy_bueno"
+    assert tech["tier_label"] == "Muy buena"
+    assert tech["estimated"] is True
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_min_bpp_filtra_torrents_de_baja_calidad(client):
+    items = [
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265",
+            "size": 1 * 1024**3,  # ~0,029 bpp
+            "seeders": 50,
+            "indexer": "T1",
+            "magnetUrl": "magnet:baja",
+        },
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265.10bit",
+            "size": 8 * 1024**3,  # ~0,23 bpp
+            "seeders": 1,
+            "indexer": "T2",
+            "magnetUrl": "magnet:alta",
+        },
+    ]
+    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+         patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
+        r = client.get("/api/search?query=Peli&min_size_gb=0.5&min_bpp=0.07")
+        assert r.status_code == 200
+
+    torrents = r.get_json()["results"][0]["torrents"]
+    assert len(torrents) == 1
+    assert torrents[0]["magnet"] == "magnet:alta"
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_sdr_only_descarta_hdr(client):
+    items = [
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265.HDR10",
+            "size": 5 * 1024**3,
+            "seeders": 10,
+            "indexer": "T1",
+            "magnetUrl": "magnet:hdr",
+        },
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265",
+            "size": 5 * 1024**3,
+            "seeders": 5,
+            "indexer": "T2",
+            "magnetUrl": "magnet:sdr",
+        },
+    ]
+    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+         patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
+        r = client.get("/api/search?query=Peli&min_size_gb=1&sdr_only=true")
+        assert r.status_code == 200
+
+    torrents = r.get_json()["results"][0]["torrents"]
+    assert len(torrents) == 1
+    assert torrents[0]["magnet"] == "magnet:sdr"
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_orden_por_bpp(client):
+    items = [
+        {
+            "title": "Peli.Floja.2023.1080p.WEB-DL.x265",
+            "size": 1 * 1024**3,
+            "seeders": 99,
+            "indexer": "T1",
+            "magnetUrl": "magnet:floja",
+        },
+        {
+            "title": "Peli.Buena.2023.1080p.WEB-DL.x265",
+            "size": 8 * 1024**3,
+            "seeders": 1,
+            "indexer": "T2",
+            "magnetUrl": "magnet:buena",
+        },
+    ]
+    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+         patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
+        por_seeders = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=seeders_desc")
+        por_bpp = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=bpp_desc")
+
+    titulos_seeders = [g["group_info"]["title"] for g in por_seeders.get_json()["results"]]
+    titulos_bpp = [g["group_info"]["title"] for g in por_bpp.get_json()["results"]]
+    assert titulos_seeders[0] == "Peli Floja"
+    assert titulos_bpp[0] == "Peli Buena"
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_orden_por_bpp_dentro_del_grupo(client):
+    items = [
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265",
+            "size": 1 * 1024**3,
+            "seeders": 50,
+            "indexer": "T1",
+            "magnetUrl": "magnet:baja",
+        },
+        {
+            "title": "Peli.2023.1080p.WEB-DL.x265.10bit",
+            "size": 8 * 1024**3,
+            "seeders": 1,
+            "indexer": "T2",
+            "magnetUrl": "magnet:alta",
+        },
+    ]
+    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+         patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
+        r = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=bpp_desc")
+        assert r.status_code == 200
+
+    torrents = r.get_json()["results"][0]["torrents"]
+    assert torrents[0]["magnet"] == "magnet:alta"
+
+
+@patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
+def test_validacion_min_bpp_y_sort(client):
+    res = client.get("/api/search?query=peli&min_bpp=5")
+    assert res.status_code == 400
+    assert "min_bpp" in res.get_json()["error"]
+
+    res = client.get("/api/search?query=peli&min_bpp=abc")
+    assert res.status_code == 400
+    assert "min_bpp" in res.get_json()["error"]
+
+    res = client.get("/api/search?query=peli&sort=inventado")
+    assert res.status_code == 400
+    assert "orden inválido" in res.get_json()["error"]

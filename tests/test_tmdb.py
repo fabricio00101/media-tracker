@@ -135,7 +135,9 @@ def test_get_tmdb_info_reintento_429(mock_get):
     }
     mock_get.side_effect = [res_429, res_200]
 
-    with patch("services.tmdb.time.sleep", return_value=None):
+    with patch("services.tmdb.time.sleep", return_value=None), patch(
+        "services.tmdb._fetch_runtime", return_value=None
+    ):
         info = get_tmdb_info("Avatar", year="2009", is_tv=False)
         assert info is not None
         assert info["id"] == 10

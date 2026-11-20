@@ -211,7 +211,7 @@
           </div>
 
           <div
-            class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4"
+            class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4"
             id="advancedSettings"
             style="display: none"
           >
@@ -246,7 +246,23 @@
               <div class="flex flex-wrap items-center gap-4 mt-2">
                  <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHDR" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">1080p HDR</label>
                  <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHEVC" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">HEVC / x265</label>
+                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors" title="Descarta HDR10, HDR10+ y Dolby Vision"><input type="checkbox" id="filterSDR" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Solo SDR</label>
               </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-400 mb-1" for="filterMinBpp"
+                >Calidad Mínima (bpp)</label
+              >
+              <select
+                id="filterMinBpp"
+                class="w-full bg-[#1a1d24] border border-white/10 text-white rounded-lg px-4 py-2 focus:ring-1 focus:ring-violet-500 outline-none"
+                title="Bits por píxel estimados a partir del tamaño y la duración. Más alto = mejor calidad por tamaño."
+              >
+                <option value="0">Sin filtro</option>
+                <option value="0.04">Correcta (≥ 0,04)</option>
+                <option value="0.07">Muy buena (≥ 0,07)</option>
+                <option value="0.12">Excelente (≥ 0,12)</option>
+              </select>
             </div>
           </div>
 
@@ -339,6 +355,7 @@
                 aria-label="Criterio de ordenamiento"
               >
                 <option value="seeders_desc">Más Seeders</option>
+                <option value="bpp_desc">Mejor Calidad (bpp)</option>
                 <option value="year_desc">Más Recientes (Año)</option>
                 <option value="year_asc">Más Antiguas (Año)</option>
                 <option value="title_asc">Título (A-Z)</option>

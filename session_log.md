@@ -653,3 +653,30 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - La carpeta `flaresolverr/` **no se versiona**: pesa ~842 MB y contiene dos archivos de 341 MB y 313 MB, por encima del límite de 100 MB por archivo de GitHub. Sigue siendo una instalación local, como cuando se instaló originalmente fuera del repositorio. El lanzador la requiere en la raíz del proyecto.
 - No se usó Git LFS porque no está configurado en el repo y consumes cuota; requiere decisión explícita.
 - `dist/app.exe` sigue ignorado (`dist/` en `.gitignore`), coherente con el resto de builds.
+
+---
+
+## Sesión 2026-11-20 — Estimación técnica de releases en la búsqueda
+
+### Qué se completó
+- **Opción A (estimación antes de descargar)** implementada de punta a punta, según el plan acordado en modo Plan:
+  - Nuevo `utils/media_meta.py`: `parse_release_meta()` deduce del nombre del torrent fuente (REMUX/BluRay/WEB-DL/WEBRip), resolución, códec, bit depth, HDR/DV/HLG, formato de audio con canales, edición y grupo; `estimate_quality()` calcula Mbps y **bits por píxel (bpp)** a partir del tamaño y la duración, y devuelve veredicto (`Excelente`/`Muy buena`/`Correcta`/`Floja`/`Remux`/`Sin datos`), puntaje y flag de bitrate bajo.
+  - `services/tmdb.py`: nuevo `_fetch_runtime()` (movie `runtime` / tv `episode_run_time[0]`) dentro del mismo caché de 24 h; si falla, devuelve `None` y la estimación queda "sin datos" sin romper la búsqueda.
+  - `services/search_service.py`: cada torrent lleva un bloque `tech` con la estimación; nuevos filtros `min_bpp` y `sdr_only`; nuevo `sort_results()` aplicado **después de la caché** (un solo conjunto cacheado sirve para todos los criterios de orden, sin mutarlo).
+  - `routes/search.py` y `utils/validators.py`: parámetros HTTP nuevos validados (`min_bpp` 0–1, `sdr_only`, `sort` ∈ seeders_desc/bpp_desc/year_desc/year_asc/title_asc) y incluidos en la clave de caché salvo `sort`.
+  - `static/js/app.js` y `templates/index.html`: badges técnicos por torrent (fuente, bits, HDR, Mbps, bpp y chip de veredicto con color y tooltip), filtro "Calidad Mínima (bpp)", casilla "Solo SDR", opción de orden "Mejor Calidad (bpp)" (al cambiarlo se relanza la búsqueda para que la paginación server-side respete el orden) y nuevas columnas `Mbps/bpp/Veredicto` en la exportación CSV (y `tech` en JSON).
+  - `README.md`: nueva característica documentada.
+  - Tests nuevos: `tests/test_media_meta.py` (parseo + umbrales), 8 tests en `tests/test_search.py` (estimación en API, min_bpp, sdr_only, orden por bpp entre grupos y dentro del grupo, validaciones) y ajuste de `tests/test_tmdb.py` para aislar el test de reintento 429 del request extra de duración.
+- **Verificación**: `python -m pytest -q` → **118 tests pasando**; `node --check static/js/app.js` → OK.
+- **Recompilado `dist/app.exe`** con `python -m PyInstaller app.spec --noconfirm` (PyInstaller 6.22.3) para que el lanzador `.bat` use el código nuevo (sin dependencias nuevas, sin tocar `app.spec`). Prueba de humo del EXE: `GET /` → 200, `/static/js/app.js` → 200 con `filterMinBpp`, `filterSDR` y `bpp_desc`, y `/api/search?query=test&category=invalido` → 400. Proceso de prueba terminado.
+
+### Qué quedó pendiente
+- Nada de esta tarea. Sin implementar: verificación real con ffprobe (Opción B) y lectura de la biblioteca de Plex (Opción C), descartadas para esta iteración.
+
+### Decisiones tomadas
+- Defaults acordados: **fps fijo 24**, packs de temporada sin bpp confiable y **`10bit` solo si el nombre lo dice** (no se asume por tratarse de x265).
+- Los archivos que no tienen resolución o duración se marcan "Sin datos" y **no se descartan** con `min_bpp`; se prefiere no perder resultados por falta de información.
+- `REMUX` no se evalúa por bpp: es copia directa del disco y se marca como máxima calidad.
+- `sdr_only` se aplica sobre la detección de HDR en el nombre; no modifica la opción existente `hdr` (que exige HDR).
+- El orden por bpp usa el mayor `score` del grupo; el color del chip distingue niveles y todos los valores se presentan como **estimaciones**, nunca como mediciones del archivo.
+- No se agregaron dependencias: `requirements.txt` queda intacto.

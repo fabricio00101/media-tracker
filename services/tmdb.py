@@ -106,6 +106,37 @@ def _select_best_candidate(results, query_title, year, is_tv):
     return best_candidate
 
 
+def _fetch_runtime(media_type, tmdb_id):
+    """Duración en minutos de una película o de un episodio de serie.
+
+    Se usa para estimar el bitrate de cada torrent. Si TMDB no la informa o la
+    consulta falla, devuelve None y la estimación queda como 'sin datos'.
+    """
+    if not config.TMDB_API_KEY or not tmdb_id:
+        return None
+
+    endpoint = f"https://api.themoviedb.org/3/{media_type}/{tmdb_id}"
+    try:
+        res = requests.get(
+            endpoint,
+            params={"api_key": config.TMDB_API_KEY, "language": "es-ES"},
+            timeout=5,
+        )
+        if res.status_code != 200:
+            return None
+        data = res.json()
+    except Exception as e:
+        logging.warning(
+            f"Error consultando duración en TMDB ({media_type} {tmdb_id}): {e}"
+        )
+        return None
+
+    if media_type == "tv":
+        runtimes = data.get("episode_run_time") or []
+        return runtimes[0] if runtimes else None
+    return data.get("runtime")
+
+
 @cache.memoize(timeout=config.CACHE_24H)
 def get_tmdb_info(query_title, year=None, is_tv=False):
     if not config.TMDB_API_KEY:
@@ -141,6 +172,7 @@ def get_tmdb_info(query_title, year=None, is_tv=False):
                         if poster_path
                         else None
                     )
+                    media_type = "tv" if is_tv else "movie"
                     return {
                         "id": best.get("id"),
                         "title": best.get("title") or best.get("name"),
@@ -151,7 +183,8 @@ def get_tmdb_info(query_title, year=None, is_tv=False):
                             if not is_tv
                             else best.get("first_air_date", "")[:4]
                         ),
-                        "media_type": "tv" if is_tv else "movie",
+                        "media_type": media_type,
+                        "runtime": _fetch_runtime(media_type, best.get("id")),
                     }
                 elif res.status_code == 429:
                     # Rate limit alcanzado: esperar brevemente antes de reintentar

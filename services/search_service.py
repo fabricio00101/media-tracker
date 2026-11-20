@@ -5,13 +5,22 @@ import PTN
 import config
 from services.tmdb import get_tmdb_info
 from utils.language_detector import detect_spanish, detect_audio, matches_language
+from utils.media_meta import estimate_quality, parse_release_meta
 from utils.validators import DEFAULT_PER_PAGE, MAX_PER_PAGE
 
 TMDB_MAX_WORKERS = 6
 
 
 def build_cache_key(
-    query, category, min_size_gb, quality_tag, require_hdr, require_hevc, lang_filters
+    query,
+    category,
+    min_size_gb,
+    quality_tag,
+    require_hdr,
+    require_hevc,
+    lang_filters,
+    min_bpp=0.0,
+    sdr_only=False,
 ):
     """Clave estable para cachear el conjunto completo de resultados agrupados."""
     return "search:" + "|".join(
@@ -23,6 +32,8 @@ def build_cache_key(
             str(require_hdr),
             str(require_hevc),
             ",".join(sorted(lang_filters)),
+            f"{float(min_bpp or 0):.3f}",
+            str(bool(sdr_only)),
         ]
     )
 
@@ -80,6 +91,28 @@ def resolve_titles(unique_titles):
     return title_to_tmdb_key, tmdb_cache
 
 
+def _build_tech(entry, tmdb_info):
+    """Arma el bloque técnico estimado de un torrent.
+
+    Combina lo deducido del nombre del release con la duración de TMDB. Si no
+    hay runtime, `estimate_quality` devuelve 'sin_datos' sin romper el resto.
+    """
+    meta = entry["meta"]
+    runtime = (tmdb_info or {}).get("runtime")
+    tech = {
+        "source": meta.get("source"),
+        "resolution": meta.get("resolution"),
+        "video_codec": meta.get("video_codec"),
+        "bit_depth": meta.get("bit_depth"),
+        "hdr": meta.get("hdr"),
+        "audio": meta.get("audio"),
+        "edition": meta.get("edition"),
+        "release_group": meta.get("group"),
+    }
+    tech.update(estimate_quality(entry["size_bytes"], runtime, meta))
+    return tech
+
+
 def process_results(
     results_data,
     category,
@@ -88,6 +121,8 @@ def process_results(
     require_hdr,
     require_hevc,
     lang_filters,
+    min_bpp=0.0,
+    sdr_only=False,
 ):
     """Filtra, agrupa y ordena los resultados crudos de Prowlarr."""
     prepared = []
@@ -110,6 +145,11 @@ def process_results(
         if require_hevc and not any(
             tag in title_lower for tag in ["hevc", "x265", "h265", "h.265"]
         ):
+            continue
+
+        # Características deducidas del nombre del release (sin descargar nada)
+        meta = parse_release_meta(title)
+        if sdr_only and meta.get("hdr"):
             continue
 
         spanish_support = detect_spanish(title_lower)
@@ -135,7 +175,9 @@ def process_results(
                 "title": title,
                 "title_lower": title_lower,
                 "size_gb": size_gb,
+                "size_bytes": item.get("size", 0) or 0,
                 "parsed": parsed,
+                "meta": meta,
                 "search_key": search_key,
                 "spanish_support": spanish_support,
                 "audio_support": audio_support,
@@ -168,6 +210,15 @@ def process_results(
         magnet = item.get("magnetUrl") or item.get("downloadUrl") or item.get("infoUrl")
         group_key = title_to_tmdb_key[entry["search_key"]]
 
+        # Estimación de calidad: necesita la duración real de TMDB
+        tech = _build_tech(entry, tmdb_cache[group_key])
+        if (
+            min_bpp
+            and tech.get("bpp") is not None
+            and tech["bpp"] < min_bpp
+        ):
+            continue
+
         if group_key not in groups:
             groups[group_key] = {"info": tmdb_cache[group_key], "torrents": []}
 
@@ -185,6 +236,7 @@ def process_results(
                 "season": parsed.get("season"),
                 "episode": parsed.get("episode"),
                 "is_full_season": is_full_season,
+                "tech": tech,
             }
         )
 
@@ -201,3 +253,66 @@ def process_results(
 
     final_results.sort(key=lambda g: g["torrents"][0]["seeders"], reverse=True)
     return final_results
+
+
+def _year_value(group_info):
+    """Año como entero; 0 si falta o no es numérico (para ordenar sin romper)."""
+    try:
+        return int(str((group_info or {}).get("year") or "").strip()[:4])
+    except (TypeError, ValueError):
+        return 0
+
+
+def _max_score(torrents):
+    """Mejor puntaje de calidad del grupo; -1 si ningún torrent tiene datos."""
+    scores = [
+        (t.get("tech") or {}).get("score")
+        for t in torrents
+        if (t.get("tech") or {}).get("score")
+    ]
+    return max(scores) if scores else -1
+
+
+def sort_results(final_results, sort_mode="seeders_desc"):
+    """Devuelve una copia ordenada de los grupos ya procesados.
+
+    Se aplica después de leer la caché para no guardar una copia por criterio
+    de ordenamiento. No muta los objetos cacheados.
+    """
+    ordered = []
+    for group in final_results or []:
+        torrents = list(group.get("torrents") or [])
+        if sort_mode == "bpp_desc":
+            torrents.sort(
+                key=lambda t: (
+                    (t.get("tech") or {}).get("score") or 0,
+                    t.get("seeders") or 0,
+                ),
+                reverse=True,
+            )
+        else:
+            torrents.sort(
+                key=lambda t: (bool(t.get("is_full_season")), t.get("seeders") or 0),
+                reverse=True,
+            )
+        ordered.append({"group_info": group.get("group_info"), "torrents": torrents})
+
+    if sort_mode == "bpp_desc":
+        ordered.sort(key=lambda g: _max_score(g["torrents"]), reverse=True)
+    elif sort_mode == "year_desc":
+        ordered.sort(key=lambda g: _year_value(g["group_info"]), reverse=True)
+    elif sort_mode == "year_asc":
+        # Los grupos sin año quedan al final, no antes de las películas antiguas
+        ordered.sort(key=lambda g: _year_value(g["group_info"]) or 9999)
+    elif sort_mode == "title_asc":
+        ordered.sort(
+            key=lambda g: ((g["group_info"] or {}).get("title") or "").lower()
+        )
+    else:
+        ordered.sort(
+            key=lambda g: max(
+                (t.get("seeders") or 0 for t in g["torrents"]), default=0
+            ),
+            reverse=True,
+        )
+    return ordered
