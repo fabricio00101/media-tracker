@@ -20,7 +20,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // --- Indicador de carga global (barra superior) ---
       const globalProgressBar = document.createElement("div");
       globalProgressBar.className =
-        "fixed top-0 left-0 h-1 bg-violet-500 z-[60] transition-all duration-300 opacity-0 w-0";
+        "fixed top-0 left-0 h-1 bg-primary z-[60] transition-all duration-300 opacity-0 w-0";
       document.body.appendChild(globalProgressBar);
 
       const showGlobalLoader = () => {
@@ -90,7 +90,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           tagsDiv.innerHTML = searchHistory.map(item => `
               <button
                   type="button"
-                  class="history-tag-btn px-3 py-1 bg-[#1a1d24] hover:bg-violet-600/20 hover:border-violet-500/50 border border-white/5 text-gray-300 hover:text-white rounded-full text-xs font-semibold transition-all flex items-center gap-1.5"
+                  class="history-tag-btn px-3 py-1 bg-surface-container-low border border-border-beige text-on-surface-variant hover:text-primary hover:bg-surface-container hover:border-outline rounded-full text-xs font-medium transition-all flex items-center gap-1.5"
                   data-query="${escapeHtml(item)}"
               >
                   <span>${escapeHtml(item)}</span>
@@ -174,13 +174,13 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       
       const updateFavBtnVisual = (btn, isFav) => {
           if(isFav) {
-              btn.innerHTML = '<i class="fas fa-heart"></i>';
-              btn.classList.add('text-red-500');
-              btn.classList.remove('text-gray-400');
+              btn.innerHTML = '<span class="material-symbols-outlined">favorite</span>';
+              btn.classList.add('text-primary');
+              btn.classList.remove('text-on-surface-variant');
           } else {
-              btn.innerHTML = '<i class="far fa-heart"></i>';
-              btn.classList.remove('text-red-500');
-              btn.classList.add('text-gray-400');
+              btn.innerHTML = '<span class="material-symbols-outlined">favorite_border</span>';
+              btn.classList.remove('text-primary');
+              btn.classList.add('text-on-surface-variant');
           }
       };
 
@@ -198,24 +198,24 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           favorites.sort((a,b) => new Date(b.added_at) - new Date(a.added_at)).forEach(fav => {
               const info = fav.info;
               const posterImg = info.poster_url
-                ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-24 h-36 object-cover rounded-lg shadow-md flex-shrink-0">`
-                : `<div class="w-24 h-36 bg-gray-800 rounded-lg shadow-md flex-shrink-0 flex items-center justify-center"><i class="fas fa-film text-3xl text-gray-600"></i></div>`;
+                ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-24 h-36 object-cover rounded-md shadow-sm flex-shrink-0 border border-border-beige">`
+                : `<div class="w-24 h-36 bg-tech-surface rounded-md flex-shrink-0 flex items-center justify-center border border-tech-border"><span class="material-symbols-outlined text-tech-secondary text-3xl">film</span></div>`;
                 
               const card = document.createElement('div');
-              card.className = "bg-[#252a35] rounded-xl p-4 border border-white/5 flex gap-4 items-start hover:border-violet-500/30 transition-colors";
+              card.className = "bg-warm-white rounded-lg p-4 border border-border-beige flex gap-4 items-start hover:border-primary transition-colors shadow-sm";
               card.innerHTML = `
                   ${posterImg}
                   <div class="flex flex-col flex-grow h-full">
                       <div class="flex justify-between items-start mb-2">
-                           <h3 class="font-black text-white leading-tight text-lg">${escapeHtml(info.title)} <span class="text-gray-500 font-normal text-sm">(${escapeHtml(info.year || "?")})</span></h3>
-                           <button type="button" data-fav-remove="${escapeHtml(fav.key)}" data-fav-info="${escapeHtml(encodeData(info))}" class="text-red-500 hover:text-red-400 p-2 ml-2 bg-white/5 rounded-lg transition-colors" title="Eliminar de favoritos">
-                               <i class="fas fa-trash-alt"></i>
+                           <h3 class="font-serif font-headline-md text-headline-md text-charcoal leading-tight mb-1">${escapeHtml(info.title)} <span class="font-sans text-on-surface-variant text-sm">(${escapeHtml(info.year || "?")})</span></h3>
+                           <button type="button" data-fav-remove="${escapeHtml(fav.key)}" data-fav-info="${escapeHtml(encodeData(info))}" class="text-error hover:text-error-container p-2 ml-2 bg-error/10 rounded-full transition-colors" title="Eliminar de favoritos">
+                               <span class="material-symbols-outlined text-[18px]">delete</span>
                            </button>
                       </div>
-                      <p class="text-xs text-gray-400 line-clamp-3 mb-3">${escapeHtml(info.overview || "Sin sinopsis disponible.")}</p>
+                      <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-3 mb-3">${escapeHtml(info.overview || "Sin sinopsis disponible.")}</p>
                       
-                      <button type="button" data-fav-search="${escapeHtml(info.title)}" class="mt-auto bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition-all w-full flex items-center justify-center gap-2">
-                          <i class="fas fa-search"></i> Buscar Torrents
+                      <button type="button" data-fav-search="${escapeHtml(info.title)}" class="mt-auto bg-primary text-on-primary hover:bg-deep-bordeaux px-4 py-2 rounded-lg text-sm font-medium transition-all w-full flex items-center justify-center gap-2 shadow-sm">
+                          <span class="material-symbols-outlined text-[16px]">search</span> Buscar Torrents
                       </button>
                   </div>
               `;
@@ -268,8 +268,8 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           const etiquetaEpisodio = (ep) => `Temporada ${ep.season} · Episodio ${ep.episode}`;
 
           const actualizarTitulo = () => {
-              const sufijo = seleccion ? ` <span class="text-blue-400 text-lg">(${escapeHtml(etiquetaEpisodio(seleccion))})</span>` : "";
-              titulo.innerHTML = `<i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos para "${escapeHtml(title)}"${sufijo}`;
+              const sufijo = seleccion ? ` <span class="text-primary text-lg font-medium">(${escapeHtml(etiquetaEpisodio(seleccion))})</span>` : "";
+              titulo.innerHTML = `<span class="material-symbols-outlined text-[20px] text-primary mr-1">closed_caption</span> Subtítulos para "${escapeHtml(title)}"${sufijo}`;
           };
 
           // Selector de episodio: solo aparece si el grupo trae varios.
@@ -339,16 +339,16 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                       const rating = attrs.ratings || 0;
 
                       html += `
-                          <div class="bg-[#252a35] border border-white/5 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-blue-500/30 transition-colors">
+                          <div class="bg-tech-surface border border-tech-border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:bg-tech-dark/50 transition-colors">
                               <div class="flex-grow overflow-hidden">
-                                  <div class="flex items-center gap-3 mb-2">
-                                      <span class="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs font-bold border border-white/10">${escapeHtml(lang)}</span>
-                                      <span class="text-xs text-yellow-500"><i class="fas fa-star"></i> ${escapeHtml(rating)}</span>
+                                  <div class="flex items-center gap-2 mb-1">
+                                      <span class="px-2 py-0.5 bg-tech-border text-tech-text rounded text-[10px] font-medium border border-tech-border/50">${escapeHtml(lang)}</span>
+                                      <span class="text-[10px] text-tertiary-fixed-dim"><span class="material-symbols-outlined text-[10px]">star</span> ${escapeHtml(rating)}</span>
                                   </div>
-                                  <p class="text-sm font-bold text-white break-all" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</p>
+                                  <p class="font-body-sm text-body-sm text-tech-text break-all" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</p>
                               </div>
-                              <button type="button" data-sub-file="${escapeHtml(fileId)}" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 flex-shrink-0">
-                                  <i class="fas fa-download"></i> Descargar
+                              <button type="button" data-sub-file="${escapeHtml(fileId)}" class="bg-primary text-on-primary hover:bg-deep-bordeaux px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 flex-shrink-0 shadow-sm">
+                                  <span class="material-symbols-outlined text-[16px]">download</span> Descargar
                               </button>
                           </div>
                       `;
@@ -380,7 +380,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       
       window.downloadSubtitle = async (fileId, btnEl) => {
           const originalText = btnEl.innerHTML;
-          btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo...';
+          btnEl.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1 animate-pulse">refresh</span> Obteniendo...';
           btnEl.disabled = true;
           
           const controller = new AbortController();
@@ -395,9 +395,9 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               // Abrir en nueva pestaña o iniciar descarga
               window.open(data.link, '_blank');
               setTimeout(() => {
-                  btnEl.innerHTML = '<i class="fas fa-check text-green-400"></i> Listo';
-                  btnEl.classList.remove("bg-blue-600", "hover:bg-blue-500");
-                  btnEl.classList.add("bg-green-600/30", "text-green-400");
+                  btnEl.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> Listo';
+                  btnEl.classList.remove("bg-primary", "hover:bg-deep-bordeaux");
+                  btnEl.classList.add("bg-tertiary-container/30", "text-on-tertiary-container");
               }, 1000);
           } catch(err) {
               clearTimeout(timeoutId);
@@ -437,53 +437,53 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         const text = title.toLowerCase();
         if (text.includes("remux"))
           return {
-            class: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+            class: "bg-primary-fixed/20 text-on-primary-fixed border primary-fixed-dim",
             text: "REMUX",
           };
         if (text.includes("2160p") || text.includes("4k"))
           return {
-            class: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+            class: "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim",
             text: "4K UHD",
           };
         if (text.includes("1080p"))
           return {
-            class: "bg-green-500/10 text-green-400 border-green-500/20",
+            class: "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim",
             text: "1080p",
           };
         if (text.includes("webrip") || text.includes("web-dl"))
           return {
-            class: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+            class: "bg-surface-variant/20 text-on-surface-variant border outline-variant",
             text: "WEB-DL",
           };
         return {
-          class: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+          class: "bg-outline-variant/20 text-outline border outline",
           text: "BDRip / Estándar",
         };
       };
 
       const getSpanishBadge = (supportType) => {
         if (!supportType) return "";
-        let colorClass = "bg-orange-500/10 text-orange-400 border-orange-500/20";
-        let icon = '<i class="fas fa-comment-dots mr-1"></i>';
+        let colorClass = "bg-surface-variant/20 text-on-surface-variant border outline-variant";
+        let icon = '<span class="material-symbols-outlined text-[10px] mr-1">comment</span>';
         if (supportType === "Latino" || supportType === "Castellano") {
-          colorClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-          icon = '<i class="fas fa-language mr-1"></i>';
+          colorClass = "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim";
+          icon = '<span class="material-symbols-outlined text-[10px] mr-1">language</span>';
         }
         return `<span class="px-2 py-1 flex-shrink-0 ${colorClass} text-[10px] font-bold rounded border lowercase inline-flex items-center" title="Soporte detectado en el título">${icon}${escapeHtml(supportType)}</span>`;
       };
 
-      // Colores del veredicto de calidad estimada (bpp)
+      // Colores del veredicto de calidad estimada (bpp) — tokens del design system
       const TECH_TIER_CLASSES = {
-        remux: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-        excelente: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-        muy_bueno: "bg-green-500/10 text-green-400 border-green-500/20",
-        correcto: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-        flojo: "bg-red-500/10 text-red-400 border-red-500/20",
-        sin_datos: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+        remux: "bg-primary-fixed/20 text-on-primary-fixed border primary-fixed-dim",
+        excelente: "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim",
+        muy_bueno: "bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant border tertiary-fixed-dim",
+        correcto: "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim",
+        flojo: "bg-error-container/20 text-on-error-container border error-container",
+        sin_datos: "bg-outline-variant/20 text-outline border outline",
       };
 
       const techChip = (text, extraClass, title) =>
-        `<span class="px-2 py-1 flex-shrink-0 ${extraClass} text-[10px] font-bold rounded border"${
+        `<span class="px-2 py-1 flex-shrink-0 ${extraClass} text-[10px] font-medium rounded border"${
           title ? ` title="${escapeHtml(title)}"` : ""
         }>${escapeHtml(text)}</span>`;
 
@@ -495,34 +495,34 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
         if (tech.source) {
           chips.push(
-            techChip(tech.source, "bg-indigo-500/10 text-indigo-300 border-indigo-500/20", "Fuente inferida del nombre"),
+            techChip(tech.source, "bg-surface-container-high/20 text-on-surface-variant border outline-variant", "Fuente inferida del nombre"),
           );
         }
         if (tech.bit_depth) {
           chips.push(
-            techChip(`${tech.bit_depth}-bit`, "bg-teal-500/10 text-teal-300 border-teal-500/20", "Profundidad de color indicada en el nombre"),
+            techChip(`${tech.bit_depth}-bit`, "bg-tech-surface text-tech-text border tech-border", "Profundidad de color indicada en el nombre"),
           );
         }
         if (tech.hdr) {
           chips.push(
-            techChip(tech.hdr, "bg-sky-500/10 text-sky-300 border-sky-500/20", "Rango dinámico HDR detectado en el nombre"),
+            techChip(tech.hdr, "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim", "Rango dinámico HDR detectado en el nombre"),
           );
         }
         if (!t.audio_support && tech.audio) {
           chips.push(
-            techChip(tech.audio, "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", "Formato de audio inferido del nombre"),
+            techChip(tech.audio, "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim", "Formato de audio inferido del nombre"),
           );
         }
         if (typeof tech.mbps === "number") {
           chips.push(
-            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-gray-500/10 text-gray-300 border-gray-500/20", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
+            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-outline border outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
           );
         }
         if (typeof tech.bpp === "number") {
           chips.push(
             techChip(
               `${tech.bpp.toFixed(3)} bpp`,
-              "bg-gray-500/10 text-gray-300 border-gray-500/20",
+              "bg-outline-variant/20 text-outline border outline",
               `Bits por píxel estimados con ${tech.fps} fps asumidos. Más alto = mejor calidad por tamaño.`,
             ),
           );
@@ -561,23 +561,23 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // temporada completa (no existe "el" subtítulo de una temporada).
       const buildSubtitlesButton = (info, episodes) => {
         const deshabilitado =
-          "bg-gray-600/10 border border-gray-600/20 text-gray-500 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 cursor-not-allowed";
+          "bg-outline-variant/20 border border-outline text-outline px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed";
 
         if (!info.id) {
           return `<button type="button" disabled title="Falta TMDB_API_KEY en el servidor; no hay TMDB ID para buscar" class="${deshabilitado}">
-                      <i class="fas fa-closed-captioning"></i> Subtítulos no disponibles
+                      <span class="material-symbols-outlined text-[16px] mr-1">closed_caption</span> Subtítulos no disponibles
                   </button>`;
         }
 
         const mediaType = info.media_type === "tv" ? "tv" : "movie";
         if (mediaType === "tv" && episodes.length === 0) {
           return `<button type="button" disabled title="Este grupo solo tiene packs de temporada completa; elegí un episodio individual" class="${deshabilitado}">
-                      <i class="fas fa-closed-captioning"></i> Subtítulos por episodio
+                      <span class="material-symbols-outlined text-[16px] mr-1">closed_caption</span> Subtítulos por episodio
                   </button>`;
         }
 
-        return `<button type="button" data-sub-id="${escapeHtml(info.id)}" data-sub-title="${escapeHtml(info.title)}" data-sub-media="${mediaType}" data-sub-episodes="${escapeHtml(encodeData(episodes))}" class="bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                    <i class="fas fa-closed-captioning"></i> Buscar Subtítulos
+        return `<button type="button" data-sub-id="${escapeHtml(info.id)}" data-sub-title="${escapeHtml(info.title)}" data-sub-media="${mediaType}" data-sub-episodes="${escapeHtml(encodeData(episodes))}" class="bg-secondary-container/20 border border-outline text-on-surface hover:bg-secondary-container hover:border-outline px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] mr-1">closed_caption</span> Buscar Subtítulos
                 </button>`;
       };
 
@@ -615,38 +615,38 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             const safeMagnet = escapeHtml(t.magnet || "");
 
             const copyBtnHTML = t.magnet
-              ? `<button type="button" data-magnet-copy="${safeMagnet}" class="text-gray-400 hover:text-white transition-colors p-3 rounded-lg bg-white/5 hover:bg-violet-600/50" title="Copiar Magnet">
-                                <i class="fas fa-copy"></i>
+              ? `<button type="button" data-magnet-copy="${safeMagnet}" class="text-on-surface-variant hover:text-primary transition-colors p-3 rounded-lg bg-surface-container-low hover:bg-surface-container border border-border-beige" title="Copiar Magnet">
+                                <span class="material-symbols-outlined text-[16px]">content_copy</span>
                             </button>`
               : "";
 
             const delugeBtnHTML = t.magnet
-              ? `<button type="button" data-magnet-deluge="${safeMagnet}" class="bg-violet-600 hover:bg-violet-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center group/deluge">
-                                <i class="fas fa-cloud-download-alt"></i> <span class="btn-text">Enviar a Deluge</span>
+              ? `<button type="button" data-magnet-deluge="${safeMagnet}" class="bg-primary text-on-primary hover:bg-deep-bordeaux px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center group/deluge shadow-sm">
+                                <span class="material-symbols-outlined text-[16px]">cloud_download</span> <span class="btn-text">Enviar a Deluge</span>
                             </button>`
-              : `<span class="text-xs text-gray-500">Sin link</span>`;
+              : `<span class="text-xs text-on-surface-variant">Sin link</span>`;
 
             const fullSeasonBadge = t.is_full_season
-              ? `<span class="px-2 py-1 bg-amber-500/20 text-amber-400 border-amber-500/30 flex-shrink-0 text-[10px] uppercase font-black rounded border"><i class="fas fa-star mr-1"></i>Temporada Completa</span>`
+              ? `<span class="px-2 py-1 bg-tertiary-container/20 text-on-tertiary-container border tertiary-container flex-shrink-0 text-[10px] font-medium rounded border"><span class="material-symbols-outlined text-[10px] mr-1">star</span>Temporada Completa</span>`
               : "";
 
             torrentsHTML += `
-                            <div class="bg-[#252a35] rounded-xl p-4 mb-3 border border-white/5 flex flex-col xl:flex-row gap-4 xl:items-center justify-between hover:border-violet-500/30 transition-colors">
+                            <div class="bg-tech-surface rounded-lg p-3 mb-3 border border-tech-border flex flex-col xl:flex-row gap-3 xl:items-center justify-between hover:bg-tech-dark/50 transition-colors">
                                 <div class="flex-grow w-full overflow-hidden">
                                     <div class="flex flex-wrap items-center gap-2 mb-2">
                                         ${fullSeasonBadge}
-                                        <span class="px-2 py-1 ${badge.class} flex-shrink-0 text-[10px] font-bold rounded border">${badge.text}</span>
-                                        ${t.quality !== "Desconocida" ? `<span class="px-2 py-1 bg-gray-700 flex-shrink-0 text-gray-300 text-[10px] rounded">${escapeHtml(t.quality)}</span>` : ""}
-                                        ${t.codec ? `<span class="px-2 py-1 bg-gray-700 text-gray-300 flex-shrink-0 text-[10px] rounded">${escapeHtml(t.codec)}</span>` : ""}
+                                        <span class="px-2 py-1 ${badge.class} flex-shrink-0 text-[10px] font-medium rounded border">${badge.text}</span>
+                                        ${t.quality !== "Desconocida" ? `<span class="px-2 py-1 bg-tech-border text-tech-text flex-shrink-0 text-[10px] rounded border border-tech-border/50">${escapeHtml(t.quality)}</span>` : ""}
+                                        ${t.codec ? `<span class="px-2 py-1 bg-tech-border text-tech-text flex-shrink-0 text-[10px] rounded border border-tech-border/50">${escapeHtml(t.codec)}</span>` : ""}
                                         ${getSpanishBadge(t.spanish_support)}
-                                        ${t.audio_support ? `<span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border-cyan-500/20 flex-shrink-0 text-[10px] font-bold rounded border inline-flex items-center" title="Formato de audio detectado"><i class="fas fa-volume-up mr-1" aria-hidden="true"></i>${escapeHtml(t.audio_support)}</span>` : ""}
+                                        ${t.audio_support ? `<span class="px-2 py-1 bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim flex-shrink-0 text-[10px] font-medium rounded border inline-flex items-center" title="Formato de audio detectado"><span class="material-symbols-outlined text-[10px] mr-1">volume_up</span>${escapeHtml(t.audio_support)}</span>` : ""}
                                         ${getTechBadges(t)}
-                                        <span class="text-blue-400 font-bold ml-auto flex-shrink-0">${escapeHtml(t.size_gb)} GB</span>
+                                        <span class="font-sans text-tech-text font-medium ml-auto flex-shrink-0">${escapeHtml(t.size_gb)} GB</span>
                                     </div>
-                                    <p class="text-sm text-gray-400 mb-2 truncate" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</p>
-                                    <div class="flex items-center gap-3 text-xs text-gray-500">
-                                        <span><i class="fas fa-arrow-up text-green-500 mr-1"></i> ${escapeHtml(t.seeders)}</span>
-                                        <span class="truncate"><i class="fas fa-server mr-1"></i> ${escapeHtml(t.tracker)}</span>
+                                    <p class="font-body-sm text-body-sm text-tech-secondary mb-2 truncate" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</p>
+                                    <div class="flex items-center gap-3 text-xs text-tech-secondary">
+                                        <span><span class="material-symbols-outlined text-[12px] text-tertiary-fixed-dim mr-1">arrow_upward</span> ${escapeHtml(t.seeders)}</span>
+                                        <span class="truncate"><span class="material-symbols-outlined text-[12px] text-tech-secondary mr-1">server</span> ${escapeHtml(t.tracker)}</span>
                                     </div>
                                 </div>
                                 <div class="flex items-center w-full xl:w-auto gap-2 mt-2 xl:mt-0">
@@ -882,41 +882,41 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                const { info, visibleTorrentsHTML, visibleCount, groupKey, episodes } = groupObj;
                
                const posterImg = info.poster_url
-                ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-full h-[400px] object-cover object-top border-b border-white/10" loading="lazy">`
-                : `<div class="w-full h-[400px] bg-gradient-to-b from-gray-800 to-[#1a1d24] flex items-center justify-center border-b border-white/10">
-                               <i class="fas fa-film text-6xl text-gray-600"></i>
+                ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-full h-[400px] object-cover object-top border-b border-border-beige" loading="lazy">`
+                : `<div class="w-full h-[400px] bg-surface-container-low flex items-center justify-center border-b border-border-beige">
+                               <span class="material-symbols-outlined text-tech-secondary text-6xl">film</span>
                            </div>`;
 
               const card = document.createElement("div");
-              card.className = `movie-group-card group bg-[#1a1d24] border border-white/10 rounded-2xl overflow-hidden flex flex-col`;
+              card.className = `movie-group-card group bg-warm-white border border-border-beige rounded-lg overflow-hidden flex flex-col shadow-sm`;
 
               const isFav = favorites.some(f => f.key === groupKey);
-              const favIcon = isFav ? '<i class="fas fa-heart"></i>' : '<i class="far fa-heart"></i>';
-              const favClass = isFav ? 'text-red-500' : 'text-gray-400';
+              const favIcon = isFav ? '<span class="material-symbols-outlined">favorite</span>' : '<span class="material-symbols-outlined">favorite_border</span>';
+              const favClass = isFav ? 'text-primary' : 'text-on-surface-variant';
 
               card.innerHTML = `
                         <div class="relative group/poster">
                             ${posterImg}
                             <div class="absolute inset-0 bg-black/60 opacity-0 group-hover/poster:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                <button type="button" class="fav-btn ${favClass} bg-white/10 hover:bg-white/20 p-4 rounded-full text-3xl transition-all transform hover:scale-110 shadow-2xl" data-key="${escapeHtml(groupKey)}" data-fav-info="${escapeHtml(encodeData(info))}" title="Guardar / Quitar Favorito">
+                                <button type="button" class="fav-btn ${favClass} bg-surface-container-low hover:bg-surface-container p-3 rounded-full text-3xl transition-all transform hover:scale-110 shadow-sm border border-border-beige" data-key="${escapeHtml(groupKey)}" data-fav-info="${escapeHtml(encodeData(info))}" title="Guardar / Quitar Favorito">
                                     ${favIcon}
                                 </button>
                             </div>
                         </div>
                         <div class="p-6 flex flex-col flex-grow">
-                            <h3 class="text-2xl font-black text-white mb-2 leading-tight">${escapeHtml(info.title)} <span class="text-gray-500 font-normal">(${escapeHtml(info.year || "?")})</span></h3>
-                            <p class="text-sm text-gray-400 mb-6 line-clamp-3" title="${escapeHtml(info.overview || "")}">${escapeHtml(info.overview || "Sin sinopsis disponible.")}</p>
+                            <h3 class="font-serif font-headline-lg text-headline-lg text-charcoal mb-2 leading-tight">${escapeHtml(info.title)} <span class="font-sans text-on-surface-variant">(${escapeHtml(info.year || "?")})</span></h3>
+                            <p class="font-body-md text-body-md text-on-surface-variant mb-6 line-clamp-3" title="${escapeHtml(info.overview || "")}">${escapeHtml(info.overview || "Sin sinopsis disponible.")}</p>
                             
                             <div class="flex gap-2 mt-auto mb-4">
                                 ${buildSubtitlesButton(info, episodes || [])}
                             </div>
 
                             <details class="group/details">
-                                <summary class="list-none cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-4 font-bold text-center transition-colors flex items-center justify-center gap-2">
-                                    <span class="text-violet-400">Ver ${visibleCount} Torrents Disponibles</span>
-                                    <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform text-white"></i>
+                                <summary class="list-none cursor-pointer bg-surface-container-low hover:bg-surface-container border border-border-beige rounded-lg p-4 font-medium text-center transition-colors flex items-center justify-center gap-2">
+                                    <span class="font-sans text-on-surface">Ver ${visibleCount} Torrents Disponibles</span>
+                                    <span class="material-symbols-outlined text-[16px] group-open/details:rotate-180 transition-transform text-on-surface-variant">expand_more</span>
                                 </summary>
-                                <div class="mt-4 pt-4 border-t border-white/5">
+                                <div class="mt-4 pt-4 border-t border-border-beige/50">
                                     ${visibleTorrentsHTML}
                                 </div>
                             </details>
@@ -945,7 +945,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
             btn.classList.add('opacity-75', 'cursor-not-allowed');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Cargando más...';
+            btn.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-2">refresh</span> Cargando más...';
 
             try {
                 const nextPage = (globalPage || 1) + 1;
@@ -989,7 +989,10 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             const textSpan = btnElement.querySelector('.btn-text');
             const icon = btnElement.querySelector('i');
             
-            icon.className = 'fas fa-spinner fa-spin';
+            icon.className = 'material-symbols-outlined';
+            icon.textContent = 'refresh';
+            icon.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
+            icon.classList.add('animate-pulse');
             textSpan.textContent = 'Enviando...';
             btnElement.disabled = true;
             btnElement.classList.add('opacity-75', 'cursor-not-allowed');
@@ -1008,8 +1011,8 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                 }
 
                 // Éxito: Pintar botón de Verde temporalmente
-                btnElement.innerHTML = '<i class="fas fa-check"></i> <span class="btn-text">Añadido!</span>';
-                btnElement.className = 'bg-emerald-500 text-white px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
+                btnElement.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> <span class="btn-text">Añadido!</span>';
+                btnElement.className = 'bg-tertiary-container text-on-tertiary-container px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
                 
                 setTimeout(() => {
                     btnElement.innerHTML = originalHTML;

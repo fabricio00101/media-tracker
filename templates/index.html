@@ -6,55 +6,140 @@
     <meta name="description" content="Media Tracker: Metabuscador de torrents integrado con TMDB." />
     <meta property="og:title" content="Buscador de Alta Fidelidad | Media Tracker" />
     <meta property="og:description" content="Descarga películas, series y documentales en la mejor calidad sin esperas." />
-    <!-- Miniatura Open Graph para redes sociales -->
     <meta property="og:image" content="/assets/screenshot.png" />
     <meta property="og:type" content="website" />
     <title>Buscador de Alta Fidelidad | Media Tracker</title>
-    <!-- Tailwind CSS CDN with Plugins -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <!-- Google Fonts: Inter -->
+
+    <!-- Google Fonts: DM Serif Display (editorial) + DM Sans (cuerpo/técnico) -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display:ital@0;1&display=swap"
       rel="stylesheet"
     />
-    <!-- Font Awesome for Icons -->
+    <!-- Material Symbols Outlined (iconos) -->
     <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
       rel="stylesheet"
     />
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              // Tokens del sistema de diseño "Filmoteca Editorial"
+              surface: "#fdf9f0",
+              "surface-dim": "#dddad1",
+              "surface-bright": "#fdf9f0",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-low": "#f7f3ea",
+              "surface-container": "#f2ede4",
+              "surface-container-high": "#ece8df",
+              "surface-container-highest": "#e6e2d9",
+              "on-surface": "#1c1c16",
+              "on-surface-variant": "#534344",
+              "inverse-surface": "#31302b",
+              "inverse-on-surface": "#f4f0e7",
+              outline: "#867274",
+              "outline-variant": "#d9c1c2",
+              "surface-tint": "#934652",
+              primary: "#591926",
+              "on-primary": "#ffffff",
+              "primary-container": "#762f3b",
+              "on-primary-container": "#fa9aa6",
+              "inverse-primary": "#ffb2ba",
+              secondary: "#615e56",
+              "on-secondary": "#ffffff",
+              "secondary-container": "#e8e2d8",
+              "on-secondary-container": "#68645c",
+              tertiary: "#003918",
+              "on-tertiary": "#ffffff",
+              "tertiary-container": "#075227",
+              "on-tertiary-container": "#80c48d",
+              error: "#ba1a1a",
+              "on-error": "#ffffff",
+              "error-container": "#ffdad6",
+              "on-error-container": "#93000a",
+              "primary-fixed": "#ffd9dc",
+              "primary-fixed-dim": "#ffb2ba",
+              "on-primary-fixed": "#3d0312",
+              "on-primary-fixed-variant": "#762f3b",
+              "secondary-fixed": "#e8e2d8",
+              "secondary-fixed-dim": "#cbc6bc",
+              "on-secondary-fixed": "#1d1b15",
+              "on-secondary-fixed-variant": "#49463f",
+              "tertiary-fixed": "#acf3b8",
+              "tertiary-fixed-dim": "#91d69e",
+              "on-tertiary-fixed": "#00210b",
+              "on-tertiary-fixed-variant": "#075227",
+              background: "#fdf9f0",
+              "on-background": "#1c1c16",
+              "surface-variant": "#e6e2d9",
+              "warm-white": "#FAF8F3",
+              charcoal: "#242321",
+              "warm-gray": "#77736C",
+              "deep-bordeaux": "#602630",
+              "border-beige": "#DCD5C9",
+              "tech-dark": "#252522",
+              "tech-surface": "#302F2C",
+              "tech-border": "#494640",
+              "tech-text": "#F1EDE4",
+              "tech-secondary": "#B7AA98",
+            },
+            fontFamily: {
+              serif: ["DM Serif Display", "serif"],
+              sans: ["DM Sans", "sans-serif"],
+            },
+            borderRadius: {
+              sm: "0.125rem",
+              DEFAULT: "0.25rem",
+              md: "0.375rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              full: "9999px",
+            },
+            spacing: {
+              "space-xs": "4px",
+              "space-sm": "8px",
+              "space-md": "16px",
+              "space-lg": "24px",
+              "space-xl": "40px",
+              gutter: "24px",
+              margin: "48px",
+            },
+          },
+        },
+      };
+    </script>
     <style data-purpose="custom-theme">
       body {
-        font-family: "Inter", sans-serif;
-        background-color: #0f1117;
-        color: #f3f4f6;
+        font-family: "DM Sans", sans-serif;
+        background-color: #fdf9f0;
+        color: #1c1c16;
       }
-      .hero-gradient {
-        background: radial-gradient(
-          circle at top,
-          rgba(139, 92, 246, 0.15) 0%,
-          rgba(15, 17, 23, 1) 70%
-        );
+      .font-serif {
+        font-family: "DM Serif Display", serif;
       }
-      .glass-search {
-        background: rgba(26, 29, 36, 0.8);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+      .font-sans {
+        font-family: "DM Sans", sans-serif;
       }
-      .filter-btn.active {
-        background-color: #8b5cf6;
-        color: white;
-        box-shadow:
-          0 10px 15px -3px rgba(88, 28, 135, 0.2),
-          0 4px 6px -2px rgba(88, 28, 135, 0.1);
-        border-color: transparent;
+      /* Oculta scrollbar sin perder funcionalidad */
+      ::-webkit-scrollbar {
+        width: 8px;
       }
-      .filter-btn:not(.active) {
-        background-color: #1a1d24;
-        color: #d1d5db;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+      ::-webkit-scrollbar-track {
+        background: #f1ede4;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d9c1c2;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #867274;
       }
       .loader {
-        border-top-color: #8b5cf6;
+        border-top-color: #762f3b;
         -webkit-animation: spinner 1.5s linear infinite;
         animation: spinner 1.5s linear infinite;
       }
@@ -66,43 +151,61 @@
           transform: rotate(360deg);
         }
       }
+      .material-symbols-outlined {
+        font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+      }
     </style>
   </head>
-  <body class="min-h-screen flex flex-col">
+  <body class="min-h-screen flex flex-col antialiased selection:bg-primary selection:text-on-primary">
+    <!-- BARRA DE PROGRESO GLOBAL (controlada por JS) -->
+    <div
+      id="globalProgressBar"
+      class="fixed top-0 left-0 h-1 bg-primary z-[60] transition-all duration-300 opacity-0 w-0"
+    ></div>
+
     <header
-      class="relative pt-20 pb-12 hero-gradient overflow-hidden flex-shrink-0"
+      class="relative pt-16 pb-12 overflow-hidden flex-shrink-0 border-b border-border-beige/60 bg-surface/90 backdrop-blur"
       data-purpose="main-header"
     >
-      <div class="container mx-auto px-4 text-center">
+      <div class="container mx-auto px-6 text-center">
+        <div class="inline-flex items-center gap-2 mb-3">
+          <span class="w-6 h-px bg-primary"></span>
+          <span
+            class="font-label-sm text-label-sm uppercase tracking-widest text-primary font-medium"
+            >Curaduría Cinematográfica &amp; Indexación</span
+          >
+          <span class="w-6 h-px bg-primary"></span>
+        </div>
         <h1
-          class="text-5xl md:text-7xl font-extrabold tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400"
+          class="font-serif text-headline-xl text-headline-xl text-charcoal tracking-tight max-w-2xl mx-auto font-light"
         >
-          Buscador de Alta Fidelidad
+          Una película para descubrir.
         </h1>
         <p
-          class="text-gray-400 text-lg md:text-xl font-light tracking-wide max-w-2xl mx-auto"
+          class="font-body-lg text-body-lg text-on-surface-variant mt-3 max-w-xl mx-auto leading-relaxed"
         >
-          Explora la mejor calidad cinematográfica disponible. Sin esperas, solo
-          fidelidad.
+          Explorá el catálogo crítico, inspeccioná metadatos puros y transferí
+          la mejor versión técnica directo a tu gestor.
         </p>
 
-        <!-- Botón Top Favoritos -->
+        <!-- Botón Colección Guardada -->
         <div class="mt-8 flex justify-center">
-             <button id="openFavoritesBtn" class="bg-[#1a1d24] border border-white/5 hover:bg-[#252a35] hover:border-violet-500/50 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
-                 <i class="fas fa-heart text-red-500"></i> Mi Colección Guardada
-             </button>
+          <button
+            id="openFavoritesBtn"
+            class="bg-warm-white border border-border-beige hover:bg-surface-container-low text-charcoal px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-2"
+          >
+            <span class="material-symbols-outlined text-[16px]">favorite</span>
+            Mi Colección Guardada
+          </button>
         </div>
       </div>
     </header>
 
-    <main
-      class="container mx-auto px-4 -mt-8 relative z-10 flex-grow"
-      data-purpose="search-section"
-    >
-      <div class="max-w-4xl mx-auto">
+    <main class="container mx-auto px-6 relative z-10 flex-grow pb-12" data-purpose="search-section">
+      <div class="max-w-6xl mx-auto">
         <form
           id="searchForm"
-          class="glass-search rounded-2xl p-6 shadow-2xl mb-8"
+          class="bg-warm-white rounded-lg shadow-sm p-6 md:p-8 mb-8 border border-border-beige"
         >
           <input type="hidden" id="min_size_gb" name="min_size_gb" value="5" />
           <input
@@ -114,24 +217,23 @@
 
           <div class="relative mb-6">
             <span
-              class="absolute inset-y-0 left-0 pl-5 flex items-center text-gray-500"
+              class="absolute left-5 top-1/2 -translate-y-1/2 flex items-center text-on-surface-variant pointer-events-none"
             >
-              <i class="fas fa-search text-xl"></i>
+              <span class="material-symbols-outlined text-[22px]">search</span>
             </span>
             <input
               id="query"
               name="query"
               required
-              class="w-full bg-[#13161d] border-none text-white text-lg rounded-xl pl-14 pr-4 py-5 focus:ring-2 focus:ring-violet-500 transition-all placeholder:text-gray-600 outline-none"
-              placeholder="Buscar películas, series o documentales..."
+              class="w-full h-14 pl-14 pr-12 bg-transparent text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 focus:outline-none rounded-lg border-none"
+              placeholder="Buscar por título, director o palabras clave..."
               type="text"
               autocomplete="off"
             />
-
             <button
               type="submit"
               id="searchBtn"
-              class="absolute inset-y-2 right-2 px-6 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+              class="absolute right-2 top-2 bottom-2 px-6 bg-primary hover:bg-deep-bordeaux text-on-primary font-label-md text-label-md tracking-wider uppercase rounded transition-colors flex items-center justify-center gap-1.5 shadow-sm"
               aria-label="Ejecutar búsqueda"
             >
               <span id="btnText">Buscar</span>
@@ -139,84 +241,84 @@
                 id="btnSpinner"
                 class="hidden w-5 h-5 border-2 border-white rounded-full loader hidden"
               ></div>
+              <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
           </div>
 
           <!-- HISTORIAL DE BÚSQUEDAS RECIENTES -->
-          <div id="searchHistoryContainer" class="hidden mb-4 pb-3 border-b border-white/5 flex flex-wrap items-center gap-2">
-            <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1">
-              <i class="fas fa-history"></i> Recientes:
+          <div
+            id="searchHistoryContainer"
+            class="hidden mb-4 pb-3 border-b border-border-beige/60 flex flex-wrap items-center gap-2"
+          >
+            <span
+              class="text-xs text-on-surface-variant font-medium uppercase tracking-wider flex items-center gap-1"
+            >
+              <span class="material-symbols-outlined text-[14px]">history</span>
+              Recientes:
             </span>
             <div id="searchHistoryTags" class="flex flex-wrap items-center gap-2"></div>
             <button
               type="button"
               id="clearHistoryBtn"
-              class="text-xs text-gray-500 hover:text-red-400 ml-auto transition-colors"
+              class="text-xs text-on-surface-variant hover:text-primary ml-auto transition-colors"
               title="Borrar historial reciente"
             >
-              <i class="fas fa-trash-alt mr-1"></i>Limpiar
+              <span class="material-symbols-outlined text-[14px] mr-1">delete</span>
+              Limpiar
             </button>
           </div>
 
           <!-- CATEGORY FILTERS -->
           <div
-            class="flex flex-wrap items-center justify-center gap-4 mb-4"
+            class="flex flex-wrap items-center justify-center gap-4 mb-6"
             data-purpose="category-filters"
           >
-            <label
-              class="cursor-pointer flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-            >
+            <label class="cursor-pointer flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors">
               <input
                 type="radio"
                 name="category"
                 value="all"
-                class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500"
+                class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
                 checked
               />
-              <span class="font-semibold text-sm">Todos</span>
+              <span class="font-sans font-medium text-sm">Todos</span>
             </label>
-            <label
-              class="cursor-pointer flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-            >
+            <label class="cursor-pointer flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors">
               <input
                 type="radio"
                 name="category"
                 value="movies"
-                class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500"
+                class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
               />
-              <span class="font-semibold text-sm">Películas</span>
+              <span class="font-sans font-medium text-sm">Películas</span>
             </label>
-            <label
-              class="cursor-pointer flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-            >
+            <label class="cursor-pointer flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors">
               <input
                 type="radio"
                 name="category"
                 value="tv"
-                class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500"
+                class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
               />
-              <span class="font-semibold text-sm">Series</span>
+              <span class="font-sans font-medium text-sm">Series</span>
             </label>
-            <label
-              class="cursor-pointer flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-            >
+            <label class="cursor-pointer flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-colors">
               <input
                 type="radio"
                 name="category"
                 value="docs"
-                class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500"
+                class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
               />
-              <span class="font-semibold text-sm">Documentales</span>
+              <span class="font-sans font-medium text-sm">Documentales</span>
             </label>
           </div>
 
           <div
-            class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4"
+            class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6"
             id="advancedSettings"
             style="display: none"
           >
             <div>
-              <label class="block text-sm font-semibold text-gray-400 mb-1"
+              <label class="block text-sm font-label-md text-on-surface-variant mb-1"
                 >Tamaño Mínimo (GB)</label
               >
               <input
@@ -225,37 +327,102 @@
                 value="5"
                 min="0"
                 step="0.5"
-                class="w-full bg-[#1a1d24] border border-white/10 text-white rounded-lg px-4 py-2 focus:ring-1 focus:ring-violet-500 outline-none"
+                class="w-full bg-warm-white border border-border-beige text-on-surface rounded-lg px-4 py-2 focus:ring-1 focus:ring-primary outline-none"
               />
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-400 mb-1"
+              <label class="block text-sm font-label-md text-on-surface-variant mb-1"
                 >Filtro de Idioma Local</label
               >
               <div class="flex flex-wrap items-center gap-4 mt-2">
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langLatino" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Latino</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langCastellano" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Castellano</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langSub" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Sub</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="langOtro" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Otros</label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    id="langLatino"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  Latino
+                </label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    id="langCastellano"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  Castellano
+                </label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    id="langSub"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  Sub
+                </label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    id="langOtro"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  Otros
+                </label>
               </div>
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-400 mb-1"
+              <label class="block text-sm font-label-md text-on-surface-variant mb-1"
                 >Etiquetas Especiales</label
               >
               <div class="flex flex-wrap items-center gap-4 mt-2">
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHDR" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">1080p HDR</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"><input type="checkbox" id="filterHEVC" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">HEVC / x265</label>
-                 <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors" title="Descarta HDR10, HDR10+ y Dolby Vision"><input type="checkbox" id="filterSDR" class="text-violet-500 bg-[#1a1d24] border-gray-600 focus:ring-violet-500 rounded">Solo SDR</label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                  title="Exige HDR en el nombre del release"
+                >
+                  <input
+                    type="checkbox"
+                    id="filterHDR"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  1080p HDR
+                </label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    id="filterHEVC"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  HEVC / x265
+                </label>
+                <label
+                  class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
+                  title="Descarta HDR10, HDR10+ y Dolby Vision"
+                >
+                  <input
+                    type="checkbox"
+                    id="filterSDR"
+                    class="text-primary bg-surface-container border border-border-beige focus:ring-primary rounded"
+                  />
+                  Solo SDR
+                </label>
               </div>
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-400 mb-1" for="filterMinBpp"
+              <label class="block text-sm font-label-md text-on-surface-variant mb-1" for="filterMinBpp"
                 >Calidad Mínima (bpp)</label
               >
               <select
                 id="filterMinBpp"
-                class="w-full bg-[#1a1d24] border border-white/10 text-white rounded-lg px-4 py-2 focus:ring-1 focus:ring-violet-500 outline-none"
+                class="w-full bg-warm-white border border-border-beige text-on-surface rounded-lg px-4 py-2 focus:ring-1 focus:ring-primary outline-none"
                 title="Bits por píxel estimados a partir del tamaño y la duración. Más alto = mejor calidad por tamaño."
               >
                 <option value="0">Sin filtro</option>
@@ -271,48 +438,49 @@
             data-purpose="quality-filters"
           >
             <span
-              class="text-sm font-semibold text-gray-400 uppercase tracking-widest mr-2 cursor-pointer hover:text-white transition-colors"
+              class="text-sm font-label-md text-on-surface-variant uppercase tracking-widest mr-2 cursor-pointer hover:text-on-surface transition-colors"
               onclick="
                 document.getElementById('advancedSettings').style.display =
                   document.getElementById('advancedSettings').style.display ===
                   'none'
                     ? 'grid'
-                    : 'none'
+                    : 'none';
               "
             >
-              <i class="fas fa-cog"></i> Filtros:
+              <span class="material-symbols-outlined text-[16px]">settings</span>
+              Filtros:
             </span>
             <button
               type="button"
-              class="filter-btn px-5 py-2 rounded-full text-sm font-bold transition-all"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
               data-value=""
             >
               ALL
             </button>
             <button
               type="button"
-              class="filter-btn px-5 py-2 rounded-full text-sm font-bold transition-all"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
               data-value="REMUX"
             >
               REMUX
             </button>
             <button
               type="button"
-              class="filter-btn px-5 py-2 rounded-full text-sm font-bold transition-all"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
               data-value="2160p"
             >
               4K UHD
             </button>
             <button
               type="button"
-              class="filter-btn active px-5 py-2 rounded-full text-sm font-bold transition-all"
+              class="filter-btn active px-4 py-1.5 rounded-lg text-sm font-medium border border-primary bg-primary text-on-primary hover:bg-deep-bordeaux transition-colors"
               data-value="1080p"
             >
               1080p
             </button>
             <button
               type="button"
-              class="filter-btn px-5 py-2 rounded-full text-sm font-bold transition-all"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
               data-value="WEBRip"
             >
               WEBRip
@@ -322,158 +490,222 @@
 
         <div
           id="errorBox"
-          class="hidden bg-red-500/10 border border-red-500/50 text-red-400 px-6 py-4 rounded-xl mb-8 flex items-center gap-4"
+          class="hidden bg-error/10 border border-error/50 text-error-container px-6 py-4 rounded-lg mb-8 flex items-center gap-3"
         >
-          <i class="fas fa-exclamation-triangle text-xl"></i>
-          <p id="errorMessage" class="font-medium"></p>
+          <span class="material-symbols-outlined text-error">error_outline</span>
+          <p id="errorMessage" class="font-medium text-on-error"></p>
         </div>
-      </div>
 
-      <section
-        id="resultsSection"
-        class="hidden pb-12"
-        data-purpose="results-display"
-      >
-        <div
-          class="flex flex-wrap items-center justify-between gap-3 mb-6 ml-2"
+        <section
+          id="resultsSection"
+          class="hidden pb-12"
+          data-purpose="results-display"
         >
-          <h2
-            id="resultsCount"
-            class="text-gray-400 text-sm font-semibold uppercase tracking-wider"
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 mb-6"
           >
-            OBRAS ENCONTRADAS (0)
-          </h2>
-          <div class="flex flex-wrap items-center gap-3">
-            <!-- Ordenamiento -->
-            <div class="flex items-center gap-2">
-              <label for="sortSelector" class="text-xs text-gray-500 uppercase tracking-wider hidden sm:inline">
-                <i class="fas fa-sort mr-1"></i> Ordenar:
-              </label>
-              <select
-                id="sortSelector"
-                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 text-xs font-bold rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-violet-500 cursor-pointer"
-                aria-label="Criterio de ordenamiento"
-              >
-                <option value="seeders_desc">Más Seeders</option>
-                <option value="bpp_desc">Mejor Calidad (bpp)</option>
-                <option value="year_desc">Más Recientes (Año)</option>
-                <option value="year_asc">Más Antiguas (Año)</option>
-                <option value="title_asc">Título (A-Z)</option>
-              </select>
-            </div>
+            <h2
+              id="resultsCount"
+              class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider"
+            >
+              OBRAS ENCONTRADAS (0)
+            </h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- Ordenamiento -->
+              <div class="flex items-center gap-2">
+                <label
+                  for="sortSelector"
+                  class="text-xs font-label-sm text-on-surface-variant uppercase tracking-wider hidden sm:inline"
+                >
+                  <span class="material-symbols-outlined text-[14px] mr-1">sort</span>
+                  Ordenar:
+                </label>
+                <select
+                  id="sortSelector"
+                  class="bg-transparent text-on-surface font-medium cursor-pointer focus:outline-none rounded-lg px-3 py-2 border border-border-beige"
+                  aria-label="Criterio de ordenamiento"
+                >
+                  <option value="seeders_desc">Más Seeders</option>
+                  <option value="bpp_desc">Mejor Calidad (bpp)</option>
+                  <option value="year_desc">Más Recientes (Año)</option>
+                  <option value="year_asc">Más Antiguas (Año)</option>
+                  <option value="title_asc">Título (A-Z)</option>
+                </select>
+              </div>
 
-            <!-- Exportar -->
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                id="exportJsonBtn"
-                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
-                title="Descargar todos los resultados en formato JSON"
-                aria-label="Exportar a JSON"
-              >
-                <i class="fas fa-file-code"></i> JSON
-              </button>
-              <button
-                type="button"
-                id="exportCsvBtn"
-                class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
-                title="Descargar todos los resultados en formato CSV (Excel)"
-                aria-label="Exportar a CSV"
-              >
-                <i class="fas fa-file-csv"></i> CSV
-              </button>
+              <!-- Exportar -->
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="exportJsonBtn"
+                  class="bg-surface-container-low border border-border-beige text-on-surface hover:bg-surface-container hover:border-outline px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                  title="Descargar todos los resultados en formato JSON"
+                  aria-label="Exportar a JSON"
+                >
+                  <span class="material-symbols-outlined text-[18px]">description</span>
+                  JSON
+                </button>
+                <button
+                  type="button"
+                  id="exportCsvBtn"
+                  class="bg-surface-container-low border border-border-beige text-on-surface hover:bg-surface-container hover:border-outline px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                  title="Descargar todos los resultados en formato CSV (Excel)"
+                  aria-label="Exportar a CSV"
+                >
+                  <span class="material-symbols-outlined text-[18px]">table_view</span>
+                  CSV
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div id="resultsList" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <!-- Injected via JS -->
-        </div>
-        
-        <!-- Paginación Manual para evitar trabas en el DOM -->
-        <div id="loadMoreContainer" class="hidden text-center mt-12">
-            <button id="loadMoreBtn" class="bg-[#1a1d24] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-8 py-4 rounded-xl font-bold transition-colors shadow-lg shadow-black/50">
-                <i class="fas fa-chevron-down mr-2"></i> Cargar Más Resultados
+          <div id="resultsList" class="flex flex-col gap-8">
+            <!-- Injected via JS -->
+          </div>
+
+          <!-- Paginación Manual -->
+          <div id="loadMoreContainer" class="hidden text-center mt-12">
+            <button
+              id="loadMoreBtn"
+              class="bg-warm-white border border-border-beige text-on-surface hover:bg-surface-container hover:border-outline px-8 py-4 rounded-lg font-medium transition-colors shadow-sm"
+            >
+              <span class="material-symbols-outlined text-[18px] mr-2">add</span>
+              Cargar Más Resultados
             </button>
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
     </main>
 
     <!-- Modal de Favoritos -->
-    <div id="favoritesModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="bg-[#13161d] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden m-4 transform scale-95 transition-transform duration-300" id="favoritesModalInner">
-            
-            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a1d24]">
-                <h2 class="text-2xl font-black text-white flex items-center gap-3">
-                    <i class="fas fa-heart text-red-500"></i> Mi Colección Guardada
-                </h2>
-                <button id="closeFavoritesBtn" class="text-gray-400 hover:text-white transition-colors p-2 cursor-pointer bg-white/5 hover:bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto flex-grow custom-scrollbar">
-                <div id="favoritesList" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Inyectado via JS -->
-                </div>
-                <div id="emptyFavoritesMessage" class="hidden text-center py-12">
-                    <i class="fas fa-box-open text-6xl text-gray-700 mb-4 block"></i>
-                    <p class="text-gray-400 text-lg">Aún no has guardado ninguna obra en tu colección.</p>
-                </div>
-            </div>
-            
+    <div
+      id="favoritesModal"
+      class="fixed inset-0 z-50 bg-on-surface/10 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300"
+    >
+      <div
+        class="bg-warm-white border border-border-beige rounded-lg w-full max-w-5xl max-h-[90vh] flex flex-col shadow-lg overflow-hidden m-4 transform scale-95 transition-transform duration-300"
+        id="favoritesModalInner"
+      >
+        <div class="p-6 border-b border-border-beige flex justify-between items-center bg-surface-container-low">
+          <h2
+            class="font-serif text-headline-lg text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
+          >
+            <span class="material-symbols-outlined text-primary">favorite</span>
+            Mi Colección Guardada
+          </h2>
+          <button
+            id="closeFavoritesBtn"
+            class="text-on-surface-variant hover:text-on-surface transition-colors p-2 cursor-pointer bg-surface-container hover:bg-surface-container-high rounded-full w-10 h-10 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
+
+        <div class="p-6 overflow-y-auto flex-grow">
+          <div id="favoritesList" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Inyectado via JS -->
+          </div>
+          <div id="emptyFavoritesMessage" class="hidden text-center py-12">
+            <span class="material-symbols-outlined text-6xl text-outline-variant mb-4 block">folder_open</span>
+            <p class="text-on-surface-variant text-lg">
+              Aún no has guardado ninguna obra en tu colección.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Modal de Subtítulos -->
-    <div id="subtitlesModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="bg-[#13161d] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden m-4 transform scale-95 transition-transform duration-300" id="subtitlesModalInner">
-            
-            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-[#1a1d24]">
-                <h2 class="text-2xl font-black text-white flex items-center gap-3" id="subtitlesModalTitle">
-                    <i class="fas fa-closed-captioning text-blue-500"></i> Subtítulos
-                </h2>
-                <button id="closeSubtitlesBtn" class="text-gray-400 hover:text-white transition-colors p-2 cursor-pointer bg-white/5 hover:bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto flex-grow custom-scrollbar relative">
-                <div id="subtitlesLoading" class="hidden absolute inset-0 bg-[#13161d]/80 flex flex-col items-center justify-center z-10">
-                    <i class="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
-                    <p class="text-gray-400">Buscando subtítulos...</p>
-                </div>
-                
-                <div id="subtitlesEpisodePicker" class="hidden mb-4 flex flex-col sm:flex-row sm:items-center gap-2 bg-[#1a1d24] border border-white/10 rounded-xl p-3">
-                    <label for="subtitlesEpisodeSelect" class="text-sm font-bold text-gray-300"><i class="fas fa-list-ol text-blue-500 mr-1"></i> Episodio:</label>
-                    <select id="subtitlesEpisodeSelect" class="bg-[#252a35] border border-white/10 text-white text-sm rounded-lg px-3 py-2 flex-grow focus:outline-none focus:border-blue-500"></select>
-                </div>
-
-                <div id="subtitlesList" class="flex flex-col gap-3">
-                    <!-- Resultados via JS -->
-                </div>
-                <div id="emptySubtitlesMessage" class="hidden text-center py-12">
-                    <i class="fas fa-search-minus text-6xl text-gray-700 mb-4 block"></i>
-                    <p class="text-gray-400 text-lg">No se encontraron subtítulos en Español/Latino para esta obra.</p>
-                </div>
-                <div id="errorSubtitlesMessage" class="hidden text-center py-12 flex flex-col items-center">
-                    <i class="fas fa-exclamation-triangle text-6xl text-red-900 mb-4 block"></i>
-                    <p class="text-red-400 text-lg mb-4" id="errorSubtitlesText">Error al buscar subtítulos.</p>
-                    <a id="fallbackSubtitlesLink" href="#" target="_blank" class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 rounded-lg text-sm font-bold border border-gray-600 transition-colors flex items-center justify-center gap-2 max-w-sm">
-                         <i class="fas fa-external-link-alt"></i> Buscar Manualmente en la Web
-                    </a>
-                </div>
-            </div>
-            
+    <div
+      id="subtitlesModal"
+      class="fixed inset-0 z-50 bg-on-surface/10 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300"
+    >
+      <div
+        class="bg-warm-white border border-border-beige rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-lg overflow-hidden m-4 transform scale-95 transition-transform duration-300"
+        id="subtitlesModalInner"
+      >
+        <div class="p-6 border-b border-border-beige flex justify-between items-center bg-surface-container-low">
+          <h2
+            class="font-serif text-headline-lg text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
+            id="subtitlesModalTitle"
+          >
+            <span class="material-symbols-outlined text-primary">closed_caption</span>
+            Subtítulos
+          </h2>
+          <button
+            id="closeSubtitlesBtn"
+            class="text-on-surface-variant hover:text-on-surface transition-colors p-2 cursor-pointer bg-surface-container hover:bg-surface-container-high rounded-full w-10 h-10 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
         </div>
+
+        <div class="p-6 overflow-y-auto flex-grow relative">
+          <div
+            id="subtitlesLoading"
+            class="hidden absolute inset-0 bg-surface/80 flex flex-col items-center justify-center z-10"
+          >
+            <span class="material-symbols-outlined text-4xl text-primary animate-pulse mb-2">refresh</span>
+            <p class="text-on-surface-variant">Buscando subtítulos...</p>
+          </div>
+
+          <div
+            id="subtitlesEpisodePicker"
+            class="hidden mb-4 flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-container-low border border-border-beige rounded-lg p-3"
+          >
+            <label
+              for="subtitlesEpisodeSelect"
+              class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1"
+            >
+              <span class="material-symbols-outlined text-[16px]">list</span>
+              Episodio:
+            </label>
+            <select
+              id="subtitlesEpisodeSelect"
+              class="bg-warm-white border border-border-beige text-on-surface rounded-lg px-3 py-2 flex-grow focus:outline-none focus:ring-1 focus:ring-primary"
+            ></select>
+          </div>
+
+          <div id="subtitlesList" class="flex flex-col gap-3">
+            <!-- Resultados via JS -->
+          </div>
+          <div id="emptySubtitlesMessage" class="hidden text-center py-12">
+            <span class="material-symbols-outlined text-6xl text-outline-variant mb-4 block">offline_bubble</span>
+            <p class="text-on-surface-variant text-lg">
+              No se encontraron subtítulos en Español/Latino para esta obra.
+            </p>
+          </div>
+          <div id="errorSubtitlesMessage" class="hidden text-center py-12 flex flex-col items-center">
+            <span class="material-symbols-outlined text-6xl text-error mb-4 block">error_outline</span>
+            <p id="errorSubtitlesText" class="text-error-container text-lg mb-4">
+              Error al buscar subtítulos.
+            </p>
+            <a
+              id="fallbackSubtitlesLink"
+              href="#"
+              target="_blank"
+              class="bg-surface-container border border-border-beige text-on-surface hover:bg-surface-container-low px-6 py-2 rounded-lg text-sm font-medium border transition-colors flex items-center justify-center gap-2 max-w-sm"
+            >
+              <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+              Buscar Manualmente en la Web
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
 
     <footer
-      class="container mx-auto px-4 py-8 border-t border-white/5 mt-auto text-center flex-shrink-0"
+      class="container mx-auto px-6 py-8 border-t border-border-beige mt-auto text-center flex-shrink-0 bg-surface"
       data-purpose="main-footer"
     >
-      <p class="text-gray-500 text-sm">
-        © 2026 Buscador de Alta Fidelidad. Diseñado para entusiastas del cine.
-      </p>
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="font-serif font-headline-sm text-headline-sm text-charcoal tracking-tight">MEDIA TRACKER</span>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">— Archivo Cinematográfico &amp; Gestor Técnico</span>
+        </div>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+          © 2026 Media Tracker. Precisión editorial y control de catálogo.
+        </p>
+      </div>
     </footer>
 
     <script src="/static/js/app.js"></script>
