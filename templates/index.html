@@ -8,6 +8,9 @@
     <meta property="og:description" content="Descarga películas, series y documentales en la mejor calidad sin esperas." />
     <meta property="og:image" content="/assets/screenshot.png" />
     <meta property="og:type" content="website" />
+    <!-- Token opcional del servidor: solo se rellena si API_SECRET_TOKEN está
+         configurado. El JS lo lee desde esta meta (nunca se hardcodea). -->
+    <meta name="api-token" content="{{ api_token or '' }}" />
     <title>Buscador de Alta Fidelidad | Media Tracker</title>
 
     <!-- Google Fonts: DM Serif Display (editorial) + DM Sans (cuerpo/técnico) -->
@@ -90,6 +93,22 @@
             fontFamily: {
               serif: ["DM Serif Display", "serif"],
               sans: ["DM Sans", "sans-serif"],
+              // Familias editoriales usadas por las clases font-headline/body/label
+              headline: ["DM Serif Display", "serif"],
+              body: ["DM Sans", "sans-serif"],
+              label: ["DM Sans", "sans-serif"],
+            },
+            fontSize: {
+              // Escala tipográfica del sistema "Filmoteca Editorial"
+              "headline-xl": ["3rem", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+              "headline-lg": ["2rem", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
+              "headline-md": ["1.5rem", { lineHeight: "1.3" }],
+              "headline-sm": ["1.25rem", { lineHeight: "1.35" }],
+              "body-lg": ["1.125rem", { lineHeight: "1.6" }],
+              "body-md": ["1rem", { lineHeight: "1.6" }],
+              "body-sm": ["0.875rem", { lineHeight: "1.5" }],
+              "label-md": ["0.875rem", { lineHeight: "1.4", letterSpacing: "0.02em" }],
+              "label-sm": ["0.75rem", { lineHeight: "1.4", letterSpacing: "0.08em" }],
             },
             borderRadius: {
               sm: "0.125rem",
@@ -154,6 +173,30 @@
       .material-symbols-outlined {
         font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
       }
+      /* Estado de los filtros de calidad: la clase .active define el estilo,
+         así el JS solo alterna una clase y no reescribe utilidades de Tailwind. */
+      .filter-btn {
+        border: 1px solid #dcd5c9;
+        background-color: #faf8f3;
+        color: #534344;
+      }
+      .filter-btn:hover {
+        color: #591926;
+        background-color: #f7f3ea;
+      }
+      .filter-btn.active {
+        border-color: #591926;
+        background-color: #591926;
+        color: #ffffff;
+      }
+      .filter-btn.active:hover {
+        background-color: #602630;
+      }
+      /* Accesibilidad: foco visible en controles interactivos */
+      .filter-btn:focus-visible {
+        outline: 2px solid #591926;
+        outline-offset: 2px;
+      }
     </style>
   </head>
   <body class="min-h-screen flex flex-col antialiased selection:bg-primary selection:text-on-primary">
@@ -171,13 +214,13 @@
         <div class="inline-flex items-center gap-2 mb-3">
           <span class="w-6 h-px bg-primary"></span>
           <span
-            class="font-label-sm text-label-sm uppercase tracking-widest text-primary font-medium"
+            class="text-label-sm uppercase tracking-widest text-primary font-medium"
             >Curaduría Cinematográfica &amp; Indexación</span
           >
           <span class="w-6 h-px bg-primary"></span>
         </div>
         <h1
-          class="font-serif text-headline-xl text-headline-xl text-charcoal tracking-tight max-w-2xl mx-auto font-light"
+          class="font-serif text-headline-xl text-charcoal tracking-tight max-w-2xl mx-auto font-light"
         >
           Una película para descubrir.
         </h1>
@@ -207,7 +250,7 @@
           id="searchForm"
           class="bg-warm-white rounded-lg shadow-sm p-6 md:p-8 mb-8 border border-border-beige"
         >
-          <input type="hidden" id="min_size_gb" name="min_size_gb" value="5" />
+          <input type="hidden" id="min_size_gb" name="min_size_gb" value="{{ default_min_size_gb }}" />
           <input
             type="hidden"
             id="quality_tag"
@@ -313,9 +356,8 @@
           </div>
 
           <div
-            class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6"
+            class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6 hidden"
             id="advancedSettings"
-            style="display: none"
           >
             <div>
               <label class="block text-sm font-label-md text-on-surface-variant mb-1"
@@ -324,7 +366,7 @@
               <input
                 type="number"
                 id="visible_min_size"
-                value="5"
+                value="{{ default_min_size_gb }}"
                 min="0"
                 step="0.5"
                 class="w-full bg-warm-white border border-border-beige text-on-surface rounded-lg px-4 py-2 focus:ring-1 focus:ring-primary outline-none"
@@ -437,51 +479,53 @@
             class="flex flex-wrap items-center justify-center gap-3"
             data-purpose="quality-filters"
           >
-            <span
-              class="text-sm font-label-md text-on-surface-variant uppercase tracking-widest mr-2 cursor-pointer hover:text-on-surface transition-colors"
-              onclick="
-                document.getElementById('advancedSettings').style.display =
-                  document.getElementById('advancedSettings').style.display ===
-                  'none'
-                    ? 'grid'
-                    : 'none';
-              "
+            <button
+              type="button"
+              id="toggleAdvancedSettings"
+              aria-controls="advancedSettings"
+              aria-expanded="false"
+              class="text-sm font-label-md text-on-surface-variant uppercase tracking-widest mr-2 cursor-pointer hover:text-on-surface transition-colors bg-transparent border-0 p-0"
             >
               <span class="material-symbols-outlined text-[16px]">settings</span>
               Filtros:
-            </span>
+            </button>
             <button
               type="button"
-              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               data-value=""
+              aria-pressed="false"
             >
               ALL
             </button>
             <button
               type="button"
-              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               data-value="REMUX"
+              aria-pressed="false"
             >
               REMUX
             </button>
             <button
               type="button"
-              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               data-value="2160p"
+              aria-pressed="false"
             >
               4K UHD
             </button>
             <button
               type="button"
-              class="filter-btn active px-4 py-1.5 rounded-lg text-sm font-medium border border-primary bg-primary text-on-primary hover:bg-deep-bordeaux transition-colors"
+              class="filter-btn active px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               data-value="1080p"
+              aria-pressed="true"
             >
               1080p
             </button>
             <button
               type="button"
-              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium border border-border-beige bg-warm-white text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors"
+              class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               data-value="WEBRip"
+              aria-pressed="false"
             >
               WEBRip
             </button>
@@ -515,7 +559,7 @@
               <div class="flex items-center gap-2">
                 <label
                   for="sortSelector"
-                  class="text-xs font-label-sm text-on-surface-variant uppercase tracking-wider hidden sm:inline"
+                  class="text-xs text-label-sm text-on-surface-variant uppercase tracking-wider hidden sm:inline"
                 >
                   <span class="material-symbols-outlined text-[14px] mr-1">sort</span>
                   Ordenar:
@@ -539,21 +583,21 @@
                   type="button"
                   id="exportJsonBtn"
                   class="bg-surface-container-low border border-border-beige text-on-surface hover:bg-surface-container hover:border-outline px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
-                  title="Descargar todos los resultados en formato JSON"
+                  title="Descargar los resultados cargados en formato JSON"
                   aria-label="Exportar a JSON"
                 >
                   <span class="material-symbols-outlined text-[18px]">description</span>
-                  JSON
+                  Exportar JSON
                 </button>
                 <button
                   type="button"
                   id="exportCsvBtn"
                   class="bg-surface-container-low border border-border-beige text-on-surface hover:bg-surface-container hover:border-outline px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
-                  title="Descargar todos los resultados en formato CSV (Excel)"
+                  title="Descargar los resultados cargados en formato CSV (Excel)"
                   aria-label="Exportar a CSV"
                 >
                   <span class="material-symbols-outlined text-[18px]">table_view</span>
-                  CSV
+                  Exportar CSV
                 </button>
               </div>
             </div>
@@ -579,6 +623,9 @@
     <!-- Modal de Favoritos -->
     <div
       id="favoritesModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="favoritesModalTitle"
       class="fixed inset-0 z-50 bg-on-surface/10 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300"
     >
       <div
@@ -587,7 +634,8 @@
       >
         <div class="p-6 border-b border-border-beige flex justify-between items-center bg-surface-container-low">
           <h2
-            class="font-serif text-headline-lg text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
+            id="favoritesModalTitle"
+            class="font-serif text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
           >
             <span class="material-symbols-outlined text-primary">favorite</span>
             Mi Colección Guardada
@@ -617,6 +665,9 @@
     <!-- Modal de Subtítulos -->
     <div
       id="subtitlesModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="subtitlesModalTitle"
       class="fixed inset-0 z-50 bg-on-surface/10 backdrop-blur-sm hidden flex items-center justify-center opacity-0 transition-opacity duration-300"
     >
       <div
@@ -625,7 +676,7 @@
       >
         <div class="p-6 border-b border-border-beige flex justify-between items-center bg-surface-container-low">
           <h2
-            class="font-serif text-headline-lg text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
+            class="font-serif text-headline-lg text-charcoal tracking-tight flex items-center gap-3"
             id="subtitlesModalTitle"
           >
             <span class="material-symbols-outlined text-primary">closed_caption</span>

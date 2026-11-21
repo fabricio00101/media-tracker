@@ -680,3 +680,59 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - `sdr_only` se aplica sobre la detección de HDR en el nombre; no modifica la opción existente `hdr` (que exige HDR).
 - El orden por bpp usa el mayor `score` del grupo; el color del chip distingue niveles y todos los valores se presentan como **estimaciones**, nunca como mediciones del archivo.
 - No se agregaron dependencias: `requirements.txt` queda intacto.
+
+---
+
+## Sesión 2026-11-21 — Rebuild de `dist/app.exe` con el diseño Filmoteca Editorial
+
+### Qué se completó
+- Verificado que `dist\app.exe` (20/11 12:28) no incluía el commit `9b3d59c` "feat(style): Aplicar diseño editorial Filmoteca Editorial": `templates/index.html` (14:49) y `static/js/app.js` (14:54) eran más nuevos.
+- Cerrados dos procesos `dist\app.exe` que estaban en ejecución (`taskkill /F /IM app.exe /T`), necesario para que PyInstaller pudiera sobrescribir el ejecutable.
+- Recompilado con `python -m PyInstaller app.spec --noconfirm` (PyInstaller 6.22.3, Python 3.15.2). Código de salida **0**. Sin módulos críticos faltantes en `warn-app.txt` (solo ausencias opcionales/de plataforma: `cryptography`, `boto3`, `pymongo`, `hiredis`, módulos POSIX, etc.).
+- Nuevo `dist\app.exe`: **21/11/2026 17:03:10**, **16.339.921 bytes**.
+- Prueba de humo del nuevo EXE contra `http://127.0.0.1:5000/` (Waitress en modo producción):
+  - `GET /` → 200 (31.050 bytes) con los marcadores del diseño nuevo: "Precisión editorial y control de catálogo", "Archivo Cinematográfico", `text-headline-xl` y "DM Serif Display".
+  - `GET /static/js/app.js` → 200 (61.323 bytes) con `filterMinBpp`, `filterSDR` y `bpp_desc`.
+  - `GET /api/search?query=test&category=invalido` → 400 JSON con `error_detail.code = INVALID_CATEGORY`.
+- Procesos de prueba terminados (`taskkill /F /IM app.exe /T`).
+- `python -m pytest -q` → **118 tests pasando** (0 fallos, 1 warning preexistente de flask-limiter por almacenamiento en memoria).
+
+### Qué quedó pendiente
+- Nada de esta tarea.
+
+### Decisiones tomadas
+- Se reutilizó `app.spec` sin modificarlo: las plantillas, `assets/` y `static/` ya están en `datas`, y los imports nuevos se resolvieron solos.
+- No se agregaron ni actualizaron dependencias.
+- No se hizo commit: `dist/` está en `.gitignore` y el cambio del ejecutable es un artefacto local.
+
+---
+
+## Sesión 2026-11-21 (cont.) — Corrección de hallazgos de la revisión técnica y rebuild final
+
+### Qué se completó
+- Revisión técnica completa del proyecto (solo lectura): 1 crítico, 4 altos, 16 medios y varios bajos, con verificación real de `py_compile`, `pytest` (118 tests, 93 % de cobertura) y dependencias.
+- **Crítico C1 corregido**: `sendToDeluge()` buscaba un `<i>` que no existe en el botón (usa `<span class="material-symbols-outlined">`) y lanzaba `TypeError` antes del `try`, inhabilitando "Enviar a Deluge". Ahora usa `data-role="deluge-icon"` con fallback al span, y todo el acceso al DOM quedó dentro de `try/catch/finally`.
+- **Altos corregidos**:
+  - A1: `allow_redirects=False` + `stream=True` en todas las descargas; cada `Location` se valida por separado (máx. 5 saltos); `_ip_is_blocked()` usa `ipaddress` y bloquea IPv4-mapeadas (`::ffff:169.254.169.254`), link-local, multicast y direcciones reservadas.
+  - A2: descarga de `.torrent` con tope de 10 MB (`Content-Length` + conteo de chunks) y validación mínima de bencode.
+  - A3: `utils/security.py` con `redact_secrets()` para logs; los handlers de Deluge, Prowlarr, TMDB y OpenSubtitles dejaron de devolver `str(e)` al cliente.
+  - A4: `TMDB_MAX_RESOLUTIONS=40` y rediseño del lock anti-*stampede* con `Event` (los seguidores no retienen locks durante I/O).
+- **Medios corregidos**: validación de cuerpo JSON (M1), `infoUrl` ya no se trata como magnet (M2), `release_date: None` (M3), lock y re-login del token de OpenSubtitles (M4), default `min_size_gb` unificado en 5 (M5), aviso visible cuando `min_bpp` no se pudo aplicar (M6), CSV injection (M7), `noopener,noreferrer` (M8), token de API con meta tag + `X-Api-Token` (M10), host configurable `127.0.0.1` y `debug=False` (M11), barra de progreso única (M13), estilos de filtro activo y `aria-pressed` (M14), `AbortController` + guardia de secuencia en "Cargar más" (M15), `Number(null)` corregido (M16).
+- **Bajos corregidos**: imports muertos, desacoplamiento servicio→ruta mediante inyección de `resolver`, fuente única de códecs de audio en `utils/audio_patterns.py` (incluida la regex `dd\+`), cierre de la `Session` de Deluge, `hmac.compare_digest`, focus trap y `role="dialog"` en modales, botón de filtros sin `onclick` inline, ruta `/assets/<filename>` para la captura, textos de exportación ajustados a "resultados cargados" y clases `font-label-sm` → `text-label-sm`.
+- **Tests nuevos**: `tests/test_review_fixes.py` (16 cases: IPv4-mapeada, cada redirección, redirección a magnet, `Content-Length` excesivo, contenido no-bencode, 5 variantes de body inválido, token de API, `redact_secrets`, `release_date: None`, `dd+`), `tests/frontend_review_check.js` (csvEscape real contra fórmulas) y dos tests en `test_frontend.py` (regresión C1 + csvEscape).
+- **Verificación final**: `python -m pytest -q` → **134 tests pasando** (0 fallos, 1 warning preexistente de flask-limiter); `compileall` → OK; `node --check static/js/app.js` → OK.
+- **Recompilado `dist/app.exe`**: 21/11/2026 17:31:24, **16.351.016 bytes**, con `python -m PyInstaller app.spec --noconfirm` (código de salida 0, sin módulos críticos faltantes). Humo test: `GET /` → 200 con `text-label-sm` y sin `font-label-sm`; `/static/js/app.js` → 200 con `data-role="deluge-icon"` y sin `querySelector('i')`; `/api/search?query=test&category=invalido` → 400. Procesos de prueba terminados.
+
+### Qué quedó pendiente
+- **M9**: CSP/HSTS y self-hosting de Tailwind/Google Fonts (requiere decisión de infra y agregar dependencias; se agregó únicamente `Cross-Origin-Opener-Policy: same-origin`, de bajo riesgo).
+- Lock anti-*stampede* distribuido con Redis cuando haya más de un worker/proceso.
+- Deduplicación de torrents entre indexers.
+- Test de DOM real para `sendToDeluge` con jsdom (requeriría npm; se cubrió con test estático + revisión manual).
+- Queda en el directorio el archivo sin versionar `build_log.txt`, generado por la redirección del output de PyInstaller.
+
+### Decisiones tomadas
+- No se cambió el mecanismo de autenticación de TMDB: la API v3 exige `api_key` en query string. Solo se redacta en logs y se evita devolver el error crudo al cliente.
+- La política SSRF por defecto sigue permitiendo privados/loopback (`SSRF_ALLOW_PRIVATE_TARGETS=true`) porque Prowlarr y Deluge suelen correr en la misma máquina o en la LAN; los rangos de metadatos (link-local, IPv4-mapeadas, multicast, reservados) se bloquean siempre.
+- Con `min_bpp` activo y sin duración de TMDB, el resultado **no se descarta**: se marca con la nota "bpp no disponible: filtro no aplicado" para no perder resultados por falta de datos.
+- El token de API se inyecta en un `<meta>` renderizado por Jinja (autoescape activo) y se envía como `X-Api-Token`; si no está configurado, el header no se envía.
+- No se agregaron dependencias: `requirements.txt` y `app.spec` quedaron intactos. No se hizo commit ni push.

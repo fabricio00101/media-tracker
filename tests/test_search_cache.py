@@ -51,7 +51,7 @@ def test_cache_stampede_una_sola_llamada(mock_tmdb, simple_cache_app):
         client = simple_cache_app.test_client()
         codigos.append(client.get("/api/search?query=matrix&min_size_gb=1").status_code)
 
-    with patch("routes.search.requests.get", side_effect=prowlarr_lento):
+    with patch("services.prowlarr_service.requests.get", side_effect=prowlarr_lento):
         hilos = [threading.Thread(target=hit) for _ in range(8)]
         for h in hilos:
             h.start()
@@ -74,7 +74,7 @@ def test_cache_hit_no_vuelve_a_consultar(mock_tmdb, simple_cache_app):
 
     client = simple_cache_app.test_client()
 
-    with patch("routes.search.requests.get", side_effect=contar):
+    with patch("services.prowlarr_service.requests.get", side_effect=contar):
         assert client.get("/api/search?query=gladiator&min_size_gb=1").status_code == 200
         assert client.get("/api/search?query=gladiator&min_size_gb=1").status_code == 200
 
@@ -86,7 +86,7 @@ def test_cache_hit_no_vuelve_a_consultar(mock_tmdb, simple_cache_app):
 # ---------------------------------------------------------------------------
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_limit_enviado_a_prowlarr(client):
-    with patch("routes.search.requests.get", return_value=_prowlarr_response([])) as mock_get:
+    with patch("services.prowlarr_service.requests.get", return_value=_prowlarr_response([])) as mock_get:
         assert client.get("/api/search?query=zzz&min_size_gb=1").status_code == 200
 
     _url, kwargs = mock_get.call_args
@@ -181,7 +181,7 @@ def test_resolve_titles_completa_media_type_de_cache_vieja(app):
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_prowlarr_sin_conexion_devuelve_503(client):
     with patch(
-        "routes.search.requests.get",
+        "services.prowlarr_service.requests.get",
         side_effect=requests.exceptions.ConnectionError("sin conexion"),
     ):
         resp = client.get("/api/search?query=algo&min_size_gb=1")
@@ -192,7 +192,7 @@ def test_prowlarr_sin_conexion_devuelve_503(client):
 
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_prowlarr_respuesta_invalida_devuelve_500(client):
-    with patch("routes.search.requests.get", side_effect=ValueError("no json")):
+    with patch("services.prowlarr_service.requests.get", side_effect=ValueError("no json")):
         resp = client.get("/api/search?query=algo&min_size_gb=1")
 
     assert resp.status_code == 500

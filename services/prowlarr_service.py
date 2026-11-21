@@ -1,5 +1,6 @@
 import requests
 import config
+from utils.security import redact_secrets
 
 
 class ProwlarrError(Exception):
@@ -41,7 +42,7 @@ def fetch_prowlarr(query, category):
         )
     except requests.exceptions.RequestException as e:
         raise ProwlarrError(
-            f"Error comunicándose con Prowlarr: {str(e)}",
+            f"Error comunicándose con Prowlarr: {redact_secrets(e)}",
             code="PROWLARR_COMMUNICATION_ERROR",
             status=502,
         )

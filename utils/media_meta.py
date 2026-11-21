@@ -6,6 +6,8 @@ funciones son puras para poder testearlas sin red ni sistema de archivos.
 
 import re
 
+from utils.audio_patterns import detect_audio_codec
+
 # Resoluciones soportadas -> (ancho, alto) del cuadro completo.
 # Los encodes con barras negras recortadas tienen menos píxeles reales, por lo
 # que el bpp calculado queda levemente subestimado (criterio conservador).
@@ -64,19 +66,8 @@ HDR_PATTERNS = [
     (r"\bhlg\b", "HLG"),
 ]
 
-AUDIO_CODEC_PATTERNS = [
-    (r"\batmos\b", "Atmos"),
-    (r"\b(truehd|true-hd)\b", "TrueHD"),
-    (r"\b(dts[- ]?hd|dtsx|dts[- ]?x)\b", "DTS-HD"),
-    # DDP/EAC3 suele venir pegado a los canales: DDP5.1, DDP7.1, DD+5.1
-    (r"\b(eac3|ddp\d?\.\d|ddp|dd\+)\b", "DD+"),
-    (r"\b(ac3|dd5|dd2|dolby[ .]?digital)\b", "DD"),
-    (r"\bdts\b", "DTS"),
-    (r"\baac\b", "AAC"),
-    (r"\bflac\b", "FLAC"),
-    (r"\bopus\b", "Opus"),
-    (r"\bmp3\b", "MP3"),
-]
+# Los códecs de audio viven en utils.audio_patterns (fuente única compartida
+# con utils.language_detector). Acá solo se detectan los canales.
 
 # Sin \b inicial: en "DDP5.1" el "5.1" está pegado a una letra y no habría límite.
 CHANNEL_PATTERNS = [
@@ -133,8 +124,8 @@ def _detect_resolution(title_lower):
 
 
 def _detect_audio(title_lower):
-    """Combina códec y cantidad de canales, por ejemplo 'DD+ 5.1'."""
-    codec = _first_match(AUDIO_CODEC_PATTERNS, title_lower)
+    """Combina códec (fuente única compartida) y cantidad de canales."""
+    codec = detect_audio_codec(title_lower)
     channels = _first_match(CHANNEL_PATTERNS, title_lower)
     if codec and channels:
         return f"{codec} {channels}"

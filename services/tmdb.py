@@ -6,6 +6,7 @@ import requests
 import logging
 from extensions import cache
 import config
+from utils.security import redact_secrets
 
 # Semáforo global en memoria para limitar consultas simultáneas a TMDB en la app
 # Evita que múltiples búsquedas concurrentes saturen la IP y gatillen rate-limits (HTTP 429)
@@ -127,7 +128,10 @@ def _fetch_runtime(media_type, tmdb_id):
         data = res.json()
     except Exception as e:
         logging.warning(
-            f"Error consultando duración en TMDB ({media_type} {tmdb_id}): {e}"
+            "Error consultando duración en TMDB (%s %s): %s",
+            media_type,
+            tmdb_id,
+            redact_secrets(e),
         )
         return None
 
@@ -179,9 +183,9 @@ def get_tmdb_info(query_title, year=None, is_tv=False):
                         "overview": best.get("overview"),
                         "poster_url": poster_url,
                         "year": (
-                            best.get("release_date", "")[:4]
+                            (best.get("release_date") or "")[:4]
                             if not is_tv
-                            else best.get("first_air_date", "")[:4]
+                            else (best.get("first_air_date") or "")[:4]
                         ),
                         "media_type": media_type,
                         "runtime": _fetch_runtime(media_type, best.get("id")),
@@ -199,7 +203,11 @@ def get_tmdb_info(query_title, year=None, is_tv=False):
                     )
                     break
             except Exception as e:
-                logging.warning(f"Error consultando TMDB para '{query_title}': {e}")
+                logging.warning(
+                    "Error consultando TMDB para '%s': %s",
+                    query_title,
+                    redact_secrets(e),
+                )
                 break
 
     return None

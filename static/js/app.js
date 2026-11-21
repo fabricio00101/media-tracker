@@ -18,10 +18,22 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       const encodeData = (value) => encodeURIComponent(JSON.stringify(value));
 
       // --- Indicador de carga global (barra superior) ---
-      const globalProgressBar = document.createElement("div");
-      globalProgressBar.className =
-        "fixed top-0 left-0 h-1 bg-primary z-[60] transition-all duration-300 opacity-0 w-0";
-      document.body.appendChild(globalProgressBar);
+      // La plantilla ya incluye #globalProgressBar: se reutiliza para no duplicar
+      // el elemento (fallback solo por si la plantilla cambia).
+      const globalProgressBar =
+        document.getElementById("globalProgressBar") ||
+        (() => {
+          const el = document.createElement("div");
+          el.className =
+            "fixed top-0 left-0 h-1 bg-primary z-[60] transition-all duration-300 opacity-0 w-0";
+          document.body.appendChild(el);
+          return el;
+        })();
+
+      // Token opcional inyectado por el servidor (solo si API_SECRET_TOKEN está
+      // configurado). Nunca se hardcodea en el JS estático.
+      const apiToken =
+        document.querySelector('meta[name="api-token"]')?.content || "";
 
       const showGlobalLoader = () => {
         globalProgressBar.classList.remove("opacity-0");
@@ -39,6 +51,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // --- Control de búsquedas concurrentes (evita condiciones de carrera) ---
       let searchSequence = 0;
       let activeSearchController = null;
+      let activeLoadMoreController = null;
       
       // ESTADO GLOBAL
       let globalCurrentResults = [];
@@ -223,6 +236,55 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           });
       };
 
+      // --- Accesibilidad de modales ---------------------------------------
+      // Atrapa el foco dentro del modal, cierra con Escape y devuelve el foco
+      // al elemento que lo abrió.
+      const modalFocus = new WeakMap();
+
+      const trapModalFocus = (modal, onClose) => {
+          const previo = document.activeElement;
+          const focusables = () =>
+              [...modal.querySelectorAll(
+                  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+              )].filter((el) => el.offsetParent !== null);
+
+          const onKeydown = (event) => {
+              if (event.key === "Escape") {
+                  event.preventDefault();
+                  onClose();
+                  return;
+              }
+              if (event.key !== "Tab") return;
+              const items = focusables();
+              if (items.length === 0) return;
+              const primero = items[0];
+              const ultimo = items[items.length - 1];
+              if (event.shiftKey && document.activeElement === primero) {
+                  event.preventDefault();
+                  ultimo.focus();
+              } else if (!event.shiftKey && document.activeElement === ultimo) {
+                  event.preventDefault();
+                  primero.focus();
+              }
+          };
+
+          document.addEventListener("keydown", onKeydown);
+          modalFocus.set(modal, () => {
+              document.removeEventListener("keydown", onKeydown);
+              if (previo && typeof previo.focus === "function") previo.focus();
+          });
+          const items = focusables();
+          if (items.length) items[0].focus();
+      };
+
+      const releaseModalFocus = (modal) => {
+          const release = modalFocus.get(modal);
+          if (release) {
+              release();
+              modalFocus.delete(modal);
+          }
+      };
+
       // Control del Modal de Favoritos
       const favModal = document.getElementById('favoritesModal');
       const favModalInner = document.getElementById('favoritesModalInner');
@@ -235,9 +297,11 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               favModal.classList.remove('opacity-0');
               favModalInner.classList.remove('scale-95');
           }, 10);
+          trapModalFocus(favModal, () => document.getElementById('closeFavoritesBtn').click());
       });
       
       document.getElementById('closeFavoritesBtn').addEventListener('click', () => {
+          releaseModalFocus(favModal);
           favModal.classList.add('opacity-0');
           favModalInner.classList.add('scale-95');
           setTimeout(() => favModal.classList.add('hidden'), 300);
@@ -290,6 +354,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               subModal.classList.remove('opacity-0');
               subModalInner.classList.remove('scale-95');
           }, 10);
+          trapModalFocus(subModal, () => document.getElementById('closeSubtitlesBtn').click());
 
           const buscar = async () => {
               if (activeController) activeController.abort();
@@ -392,8 +457,8 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               const data = await res.json();
               if(!res.ok) throw new Error(data.error || "Error obteniendo link");
               
-              // Abrir en nueva pestaña o iniciar descarga
-              window.open(data.link, '_blank');
+              // Abrir en nueva pestaña o iniciar descarga (sin acceso al opener)
+              window.open(data.link, '_blank', 'noopener,noreferrer');
               setTimeout(() => {
                   btnEl.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> Listo';
                   btnEl.classList.remove("bg-primary", "hover:bg-deep-bordeaux");
@@ -409,6 +474,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       };
       
       document.getElementById('closeSubtitlesBtn').addEventListener('click', () => {
+          releaseModalFocus(subModal);
           subModal.classList.add('opacity-0');
           subModalInner.classList.add('scale-95');
           setTimeout(() => subModal.classList.add('hidden'), 300);
@@ -424,10 +490,25 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         (e) => (hiddenMinSize.value = e.target.value),
       );
 
+      // Panel de filtros avanzados: visible/oculto con una clase (sin onclick
+      // inline) y estado accesible en aria-expanded.
+      const advancedSettings = document.getElementById("advancedSettings");
+      const toggleAdvancedSettings = document.getElementById("toggleAdvancedSettings");
+      if (advancedSettings && toggleAdvancedSettings) {
+        toggleAdvancedSettings.addEventListener("click", () => {
+          const oculto = advancedSettings.classList.toggle("hidden");
+          toggleAdvancedSettings.setAttribute("aria-expanded", String(!oculto));
+        });
+      }
+
       filterBtns.forEach((btn) => {
         btn.addEventListener("click", () => {
-          filterBtns.forEach((b) => b.classList.remove("active"));
+          filterBtns.forEach((b) => {
+            b.classList.remove("active");
+            b.setAttribute("aria-pressed", "false");
+          });
           btn.classList.add("active");
+          btn.setAttribute("aria-pressed", "true");
           qualityInput.value = btn.getAttribute("data-value");
         });
       });
@@ -437,36 +518,36 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         const text = title.toLowerCase();
         if (text.includes("remux"))
           return {
-            class: "bg-primary-fixed/20 text-on-primary-fixed border primary-fixed-dim",
+            class: "bg-primary-fixed/20 text-on-primary-fixed border-primary-fixed-dim",
             text: "REMUX",
           };
         if (text.includes("2160p") || text.includes("4k"))
           return {
-            class: "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim",
+            class: "bg-secondary-fixed/20 text-on-secondary-fixed border-secondary-fixed-dim",
             text: "4K UHD",
           };
         if (text.includes("1080p"))
           return {
-            class: "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim",
+            class: "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim",
             text: "1080p",
           };
         if (text.includes("webrip") || text.includes("web-dl"))
           return {
-            class: "bg-surface-variant/20 text-on-surface-variant border outline-variant",
+            class: "bg-surface-variant/20 text-on-surface-variant border-outline-variant",
             text: "WEB-DL",
           };
         return {
-          class: "bg-outline-variant/20 text-outline border outline",
+          class: "bg-outline-variant/20 text-outline border-outline",
           text: "BDRip / Estándar",
         };
       };
 
       const getSpanishBadge = (supportType) => {
         if (!supportType) return "";
-        let colorClass = "bg-surface-variant/20 text-on-surface-variant border outline-variant";
+        let colorClass = "bg-surface-variant/20 text-on-surface-variant border-outline-variant";
         let icon = '<span class="material-symbols-outlined text-[10px] mr-1">comment</span>';
         if (supportType === "Latino" || supportType === "Castellano") {
-          colorClass = "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim";
+          colorClass = "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim";
           icon = '<span class="material-symbols-outlined text-[10px] mr-1">language</span>';
         }
         return `<span class="px-2 py-1 flex-shrink-0 ${colorClass} text-[10px] font-bold rounded border lowercase inline-flex items-center" title="Soporte detectado en el título">${icon}${escapeHtml(supportType)}</span>`;
@@ -474,12 +555,12 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
       // Colores del veredicto de calidad estimada (bpp) — tokens del design system
       const TECH_TIER_CLASSES = {
-        remux: "bg-primary-fixed/20 text-on-primary-fixed border primary-fixed-dim",
-        excelente: "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim",
-        muy_bueno: "bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant border tertiary-fixed-dim",
-        correcto: "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim",
-        flojo: "bg-error-container/20 text-on-error-container border error-container",
-        sin_datos: "bg-outline-variant/20 text-outline border outline",
+        remux: "bg-primary-fixed/20 text-on-primary-fixed border-primary-fixed-dim",
+        excelente: "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim",
+        muy_bueno: "bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant border-tertiary-fixed-dim",
+        correcto: "bg-secondary-fixed/20 text-on-secondary-fixed border-secondary-fixed-dim",
+        flojo: "bg-error-container/20 text-on-error-container border-error-container",
+        sin_datos: "bg-outline-variant/20 text-outline border-outline",
       };
 
       const techChip = (text, extraClass, title) =>
@@ -495,34 +576,34 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
         if (tech.source) {
           chips.push(
-            techChip(tech.source, "bg-surface-container-high/20 text-on-surface-variant border outline-variant", "Fuente inferida del nombre"),
+            techChip(tech.source, "bg-surface-container-high/20 text-on-surface-variant border-outline-variant", "Fuente inferida del nombre"),
           );
         }
         if (tech.bit_depth) {
           chips.push(
-            techChip(`${tech.bit_depth}-bit`, "bg-tech-surface text-tech-text border tech-border", "Profundidad de color indicada en el nombre"),
+            techChip(`${tech.bit_depth}-bit`, "bg-tech-surface text-tech-text border-tech-border", "Profundidad de color indicada en el nombre"),
           );
         }
         if (tech.hdr) {
           chips.push(
-            techChip(tech.hdr, "bg-secondary-fixed/20 text-on-secondary-fixed border secondary-fixed-dim", "Rango dinámico HDR detectado en el nombre"),
+            techChip(tech.hdr, "bg-secondary-fixed/20 text-on-secondary-fixed border-secondary-fixed-dim", "Rango dinámico HDR detectado en el nombre"),
           );
         }
         if (!t.audio_support && tech.audio) {
           chips.push(
-            techChip(tech.audio, "bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim", "Formato de audio inferido del nombre"),
+            techChip(tech.audio, "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim", "Formato de audio inferido del nombre"),
           );
         }
         if (typeof tech.mbps === "number") {
           chips.push(
-            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-outline border outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
+            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-outline border-outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
           );
         }
         if (typeof tech.bpp === "number") {
           chips.push(
             techChip(
               `${tech.bpp.toFixed(3)} bpp`,
-              "bg-outline-variant/20 text-outline border outline",
+              "bg-outline-variant/20 text-outline border-outline",
               `Bits por píxel estimados con ${tech.fps} fps asumidos. Más alto = mejor calidad por tamaño.`,
             ),
           );
@@ -537,17 +618,32 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                 : `Calidad estimada (${Math.round(tech.score)}/100). Estimación, no medición del archivo.`;
           chips.push(techChip(tech.tier_label, tierClass, tierTitle));
         }
+        if (tech.bpp_note) {
+          // El usuario pidió filtrar por bpp pero faltan datos: se avisa que
+          // el filtro no se aplicó en vez de descartar el resultado.
+          chips.push(
+            techChip("bpp n/d", "bg-outline-variant/20 text-outline border-outline", tech.bpp_note),
+          );
+        }
         return chips.join("");
       };
 
       // Episodios individuales presentes en un grupo (para buscar subtítulos).
       // Los packs de temporada completa no traen episodio y se omiten.
+      // Ojo: Number(null) === 0, así que null/"" se tratan explícitamente como
+      // "sin episodio" para no inventar S01E00.
+      const toEpisodeNumber = (value) => {
+        if (value === null || value === undefined || value === "") return null;
+        const num = Number(value);
+        return Number.isInteger(num) ? num : null;
+      };
+
       const buildEpisodeList = (torrents) => {
         const vistos = new Map();
         (torrents || []).forEach((t) => {
-          const season = Number(t.season);
-          const episode = Number(t.episode);
-          if (Number.isInteger(season) && Number.isInteger(episode)) {
+          const season = toEpisodeNumber(t.season);
+          const episode = toEpisodeNumber(t.episode);
+          if (season !== null && episode !== null) {
             vistos.set(`${season}-${episode}`, { season, episode });
           }
         });
@@ -622,12 +718,12 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
             const delugeBtnHTML = t.magnet
               ? `<button type="button" data-magnet-deluge="${safeMagnet}" class="bg-primary text-on-primary hover:bg-deep-bordeaux px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center group/deluge shadow-sm">
-                                <span class="material-symbols-outlined text-[16px]">cloud_download</span> <span class="btn-text">Enviar a Deluge</span>
+                                <span class="material-symbols-outlined text-[16px]" data-role="deluge-icon">cloud_download</span> <span class="btn-text">Enviar a Deluge</span>
                             </button>`
               : `<span class="text-xs text-on-surface-variant">Sin link</span>`;
 
             const fullSeasonBadge = t.is_full_season
-              ? `<span class="px-2 py-1 bg-tertiary-container/20 text-on-tertiary-container border tertiary-container flex-shrink-0 text-[10px] font-medium rounded border"><span class="material-symbols-outlined text-[10px] mr-1">star</span>Temporada Completa</span>`
+              ? `<span class="px-2 py-1 bg-tertiary-container/20 text-on-tertiary-container border-tertiary-container flex-shrink-0 text-[10px] font-medium rounded border"><span class="material-symbols-outlined text-[10px] mr-1">star</span>Temporada Completa</span>`
               : "";
 
             torrentsHTML += `
@@ -639,7 +735,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                                         ${t.quality !== "Desconocida" ? `<span class="px-2 py-1 bg-tech-border text-tech-text flex-shrink-0 text-[10px] rounded border border-tech-border/50">${escapeHtml(t.quality)}</span>` : ""}
                                         ${t.codec ? `<span class="px-2 py-1 bg-tech-border text-tech-text flex-shrink-0 text-[10px] rounded border border-tech-border/50">${escapeHtml(t.codec)}</span>` : ""}
                                         ${getSpanishBadge(t.spanish_support)}
-                                        ${t.audio_support ? `<span class="px-2 py-1 bg-tertiary-fixed/20 text-on-tertiary-fixed border tertiary-fixed-dim flex-shrink-0 text-[10px] font-medium rounded border inline-flex items-center" title="Formato de audio detectado"><span class="material-symbols-outlined text-[10px] mr-1">volume_up</span>${escapeHtml(t.audio_support)}</span>` : ""}
+                                        ${t.audio_support ? `<span class="px-2 py-1 bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim flex-shrink-0 text-[10px] font-medium rounded border inline-flex items-center" title="Formato de audio detectado"><span class="material-symbols-outlined text-[10px] mr-1">volume_up</span>${escapeHtml(t.audio_support)}</span>` : ""}
                                         ${getTechBadges(t)}
                                         <span class="font-sans text-tech-text font-medium ml-auto flex-shrink-0">${escapeHtml(t.size_gb)} GB</span>
                                     </div>
@@ -680,6 +776,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           // Cancela cualquier búsqueda anterior en curso antes de lanzar la nueva
           const mySequence = ++searchSequence;
           if (activeSearchController) activeSearchController.abort();
+          if (activeLoadMoreController) activeLoadMoreController.abort();
           activeSearchController = new AbortController();
           const searchSignal = activeSearchController.signal;
           showGlobalLoader();
@@ -940,6 +1037,13 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         document.getElementById('loadMoreBtn').addEventListener('click', async () => {
             if (!globalHasMore || globalLoadingMore || !globalSearchParams) return;
 
+            // Guardia de secuencia: si arranca una búsqueda nueva, esta página
+            // vieja se descarta en lugar de anexarse a la nueva.
+            const mySequence = searchSequence;
+            if (activeLoadMoreController) activeLoadMoreController.abort();
+            const controller = new AbortController();
+            activeLoadMoreController = controller;
+
             globalLoadingMore = true;
             const btn = document.getElementById('loadMoreBtn');
             const originalHTML = btn.innerHTML;
@@ -952,11 +1056,16 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                 const params = new URLSearchParams(globalSearchParams);
                 params.set('page', nextPage);
 
-                const response = await fetch(`/api/search?${params.toString()}`);
+                const response = await fetch(`/api/search?${params.toString()}`, {
+                    signal: controller.signal,
+                });
                 const data = await response.json();
                 if (!response.ok) {
                     throw new Error(data.error || 'Error cargando más resultados.');
                 }
+
+                // Una búsqueda más reciente reemplazó a esta: no mezclar lotes.
+                if (mySequence !== searchSequence) return;
 
                 const newGroups = buildValidGroups(data.results || []);
 
@@ -973,8 +1082,13 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                 globalRenderedCount = globalCurrentResults.length - newGroups.length;
                 renderNextBatch();
             } catch (error) {
+                // Cancelaciones y respuestas viejas no son errores para el usuario.
+                if (error.name === 'AbortError' || mySequence !== searchSequence) return;
                 alert(error.message);
             } finally {
+                if (activeLoadMoreController === controller) {
+                    activeLoadMoreController = null;
+                }
                 btn.disabled = false;
                 btn.classList.remove('opacity-75', 'cursor-not-allowed');
                 btn.innerHTML = originalHTML;
@@ -984,23 +1098,34 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
         // Función RPC Enviar a Deluge Remoto
         async function sendToDeluge(magnetUrl, btnElement) {
-            const originalHTML = btnElement.innerHTML;
-            const originalClasses = btnElement.className;
-            const textSpan = btnElement.querySelector('.btn-text');
-            const icon = btnElement.querySelector('i');
-            
-            icon.className = 'material-symbols-outlined';
-            icon.textContent = 'refresh';
-            icon.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
-            icon.classList.add('animate-pulse');
-            textSpan.textContent = 'Enviando...';
-            btnElement.disabled = true;
-            btnElement.classList.add('opacity-75', 'cursor-not-allowed');
+            let originalHTML = null;
+            let originalClasses = null;
 
             try {
+                // TODO el acceso/manipulación del DOM va dentro del try: si falta
+                // el icono o el texto, el catch lo informa y el finally restaura.
+                originalHTML = btnElement.innerHTML;
+                originalClasses = btnElement.className;
+                const textSpan = btnElement.querySelector('.btn-text');
+                const icon =
+                    btnElement.querySelector('[data-role="deluge-icon"]') ||
+                    btnElement.querySelector('.material-symbols-outlined');
+
+                if (icon) {
+                    icon.className = 'material-symbols-outlined animate-pulse';
+                    icon.textContent = 'refresh';
+                    icon.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
+                }
+                if (textSpan) textSpan.textContent = 'Enviando...';
+                btnElement.disabled = true;
+                btnElement.classList.add('opacity-75', 'cursor-not-allowed');
+
                 const res = await fetch('/api/deluge/add', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(apiToken ? { 'X-Api-Token': apiToken } : {}),
+                    },
                     body: JSON.stringify({ magnet: magnetUrl })
                 });
 
@@ -1010,20 +1135,23 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                     throw new Error(data.error || 'Ocurrió un error de red o de clave incorrecta.');
                 }
 
-                // Éxito: Pintar botón de Verde temporalmente
+                // Éxito: feedback verde breve antes de que el finally restaure.
                 btnElement.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> <span class="btn-text">Añadido!</span>';
                 btnElement.className = 'bg-tertiary-container text-on-tertiary-container px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
-                
-                setTimeout(() => {
-                    btnElement.innerHTML = originalHTML;
-                    btnElement.className = originalClasses;
-                    btnElement.disabled = false;
-                    btnElement.classList.remove('opacity-75', 'cursor-not-allowed');
-                }, 4000);
+
+                await new Promise((resolve) => setTimeout(resolve, 1200));
 
             } catch (error) {
                 alert("Error interactuando con Deluge:\n" + error.message);
-                btnElement.innerHTML = originalHTML;
+            } finally {
+                // Restaura SIEMPRE: innerHTML, clases, disabled y texto.
+                if (originalHTML !== null) {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.className = originalClasses;
+                } else {
+                    const textSpanFinal = btnElement.querySelector('.btn-text');
+                    if (textSpanFinal) textSpanFinal.textContent = 'Enviar a Deluge';
+                }
                 btnElement.disabled = false;
                 btnElement.classList.remove('opacity-75', 'cursor-not-allowed');
             }
@@ -1146,7 +1274,12 @@ const downloadBlob = (content, filename, mimeType) => {
 };
 
 const csvEscape = (value) => {
-    const text = value === null || value === undefined ? "" : String(value);
+    let text = value === null || value === undefined ? "" : String(value);
+    // Neutraliza la inyección de fórmulas al abrir el CSV en Excel/Sheets:
+    // un valor que empieza con = + - @ (o tab/CR) se interpreta como fórmula.
+    if (/^[=+\-@\t\r]/.test(text)) {
+        text = "'" + text;
+    }
     return `"${text.replace(/"/g, '""')}"`;
 };
 

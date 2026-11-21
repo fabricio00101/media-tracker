@@ -4,6 +4,7 @@ import logging
 from extensions import limiter, cache
 import config
 from services.subtitles import get_opensubtitles_token
+from utils.security import redact_secrets
 
 subtitles_bp = Blueprint("subtitles", __name__)
 
@@ -93,17 +94,34 @@ def search_subtitles():
         response.raise_for_status()
         return jsonify(response.json())
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 401:
+        status = e.response.status_code if e.response is not None else 500
+        if status == 401:
             return jsonify({"error": "API Key de OpenSubtitles inválida"}), 401
-        elif e.response.status_code == 429:
+        if status == 429:
             return (
                 jsonify({"error": "Límite de peticiones de OpenSubtitles excedido"}),
                 429,
             )
-        return jsonify({"error": f"Error de OpenSubtitles: {e}"}), 500
+        logging.error("Error de OpenSubtitles al buscar: %s", redact_secrets(e))
+        return jsonify({"error": "Error de OpenSubtitles al buscar subtítulos."}), 500
     except Exception as e:
-        logging.error(f"Error al buscar subtitulos: {e}")
+        logging.error("Error al buscar subtitulos: %s", redact_secrets(e))
         return jsonify({"error": "Error interno al buscar subtitulos"}), 500
+
+
+def _request_download_link(file_id, token):
+    """Pide a OpenSubtitles el link de descarga usando un token concreto."""
+    url = "https://api.opensubtitles.com/api/v1/download"
+    headers = {
+        "Api-Key": config.OPENSUBTITLES_API_KEY,
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "RastreadorTorrents/1.0",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    return requests.post(
+        url, headers=headers, json={"file_id": int(file_id)}, timeout=10
+    )
 
 
 @subtitles_bp.route("/api/subtitles/download")
@@ -124,18 +142,23 @@ def download_subtitle():
             401,
         )
 
-    url = "https://api.opensubtitles.com/api/v1/download"
-    headers = {
-        "Api-Key": config.OPENSUBTITLES_API_KEY,
-        "Authorization": f"Bearer {token}",
-        "User-Agent": "RastreadorTorrents/1.0",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-    payload = {"file_id": int(file_id)}
-
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response = _request_download_link(file_id, token)
+
+        # Token revocado o vencido antes de las 23 h: un único re-login.
+        if response.status_code == 401:
+            token = get_opensubtitles_token(force=True)
+            if not token:
+                return (
+                    jsonify(
+                        {
+                            "error": "OpenSubtitles rechazó el token y no se pudo renovar la sesión."
+                        }
+                    ),
+                    401,
+                )
+            response = _request_download_link(file_id, token)
+
         response.raise_for_status()
         data = response.json()
         link = data.get("link")
@@ -148,9 +171,14 @@ def download_subtitle():
             )
         return jsonify({"link": link})
     except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 406:
+        status = e.response.status_code if e.response is not None else 500
+        if status == 406:
             return jsonify({"error": "Límite de descargas excedido de tu cuenta"}), 406
-        return jsonify({"error": f"Error al descargar: {e}"}), 500
+        logging.error("Error al descargar subtítulo: %s", redact_secrets(e))
+        return (
+            jsonify({"error": "Error al descargar el subtítulo desde OpenSubtitles."}),
+            500,
+        )
     except Exception as e:
-        logging.error(f"Error al obtener link de descarga: {e}")
+        logging.error("Error al obtener link de descarga: %s", redact_secrets(e))
         return jsonify({"error": "Error interno al obtener link de descarga"}), 500

@@ -57,3 +57,23 @@ def test_escape_html_neutraliza_xss():
         timeout=60,
     )
     assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_send_to_deluge_usa_icono_existente(app_js):
+    """Regresión de C1: el botón usa <span>, nunca <i>."""
+    assert "querySelector('i')" not in app_js
+    assert 'querySelector("i")' not in app_js
+    assert 'data-role="deluge-icon"' in app_js
+    assert 'data-magnet-deluge="' in app_js
+
+
+@pytest.mark.skipif(NODE is None, reason="node no está instalado")
+def test_csv_escape_neutraliza_formulas():
+    """Ejecuta csvEscape() real contra valores que Excel interpretaría."""
+    res = subprocess.run(
+        [NODE, str(ROOT / "tests" / "frontend_review_check.js")],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert res.returncode == 0, res.stdout + res.stderr

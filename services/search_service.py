@@ -6,7 +6,6 @@ import config
 from services.tmdb import get_tmdb_info
 from utils.language_detector import detect_spanish, detect_audio, matches_language
 from utils.media_meta import estimate_quality, parse_release_meta
-from utils.validators import DEFAULT_PER_PAGE, MAX_PER_PAGE
 
 TMDB_MAX_WORKERS = 6
 
@@ -38,33 +37,46 @@ def build_cache_key(
     )
 
 
-def resolve_titles(unique_titles):
+def resolve_titles(unique_titles, resolver=None):
     """Resuelve la información de TMDB de cada título único, en paralelo.
 
     `unique_titles` mapea search_key -> (título, año, es serie).
+    `resolver` permite inyectar la función de TMDB sin que el servicio importe
+    `routes.search` (por defecto usa services.tmdb.get_tmdb_info).
     Devuelve (title_to_tmdb_key, tmdb_cache).
     """
     if not unique_titles:
         return {}, {}
 
+    resolver = resolver or get_tmdb_info
     keys = list(unique_titles.keys())
+
+    # Acota las resoluciones de red por búsqueda: Prowlarr puede devolver
+    # cientos de títulos distintos y no queremos saturar TMDB.
+    limite = getattr(config, "TMDB_MAX_RESOLUTIONS", 0)
+    keys_a_resolver = keys if limite <= 0 else keys[:limite]
+
     flask_app = current_app._get_current_object()
 
     def resolve(search_key):
         raw_title, year, is_tv = unique_titles[search_key]
         with flask_app.app_context():
-            # Import dinámico o referencia del namespace de routes.search para respetar parches de tests
-            import routes.search as rs
-            return rs.get_tmdb_info(raw_title, year, is_tv)
+            return resolver(raw_title, year, is_tv)
 
-    with ThreadPoolExecutor(max_workers=min(TMDB_MAX_WORKERS, len(keys))) as pool:
-        infos = list(pool.map(resolve, keys))
+    infos = {}
+    if keys_a_resolver:
+        with ThreadPoolExecutor(
+            max_workers=min(TMDB_MAX_WORKERS, len(keys_a_resolver))
+        ) as pool:
+            for key, info in zip(keys_a_resolver, pool.map(resolve, keys_a_resolver)):
+                infos[key] = info
 
     title_to_tmdb_key = {}
     tmdb_cache = {}
 
-    for search_key, info in zip(keys, infos):
+    for search_key in keys:
         raw_title, year, is_tv = unique_titles[search_key]
+        info = infos.get(search_key)
 
         if info and info.get("title"):
             media_type = info.get("media_type") or ("tv" if is_tv else "movie")
@@ -123,6 +135,7 @@ def process_results(
     lang_filters,
     min_bpp=0.0,
     sdr_only=False,
+    resolver=None,
 ):
     """Filtra, agrupa y ordena los resultados crudos de Prowlarr."""
     prepared = []
@@ -186,7 +199,7 @@ def process_results(
         )
 
     # --- Resolución de metadatos en paralelo ------------------------------
-    title_to_tmdb_key, tmdb_cache = resolve_titles(unique_titles)
+    title_to_tmdb_key, tmdb_cache = resolve_titles(unique_titles, resolver=resolver)
 
     # --- 2ª pasada: agrupación --------------------------------------------
     groups = {}
@@ -207,11 +220,15 @@ def process_results(
             ):
                 is_full_season = True
 
-        magnet = item.get("magnetUrl") or item.get("downloadUrl") or item.get("infoUrl")
+        magnet = item.get("magnetUrl") or item.get("downloadUrl")
         group_key = title_to_tmdb_key[entry["search_key"]]
 
         # Estimación de calidad: necesita la duración real de TMDB
         tech = _build_tech(entry, tmdb_cache[group_key])
+        if min_bpp and tech.get("bpp") is None:
+            # Decisión: no se descarta el torrent por falta de runtime, pero se
+            # deja explícito que el filtro de bpp no pudo aplicarse.
+            tech["bpp_note"] = "bpp no disponible: filtro no aplicado"
         if (
             min_bpp
             and tech.get("bpp") is not None

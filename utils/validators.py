@@ -3,6 +3,10 @@ import math
 DEFAULT_PER_PAGE = 16
 MAX_PER_PAGE = 50
 
+# Tamaño mínimo por defecto (GB). Es la única fuente de verdad: la plantilla
+# recibe este valor para el input visible y el campo oculto.
+DEFAULT_MIN_SIZE_GB = 5
+
 MIN_QUERY_LENGTH = 1
 MAX_QUERY_LENGTH = 150
 MIN_SIZE_GB_MIN = 0.0
@@ -80,7 +84,7 @@ def validate_search_params(args):
         )
 
     # 4) Tamaño mínimo
-    raw_min_size = args.get("min_size_gb", 15)
+    raw_min_size = args.get("min_size_gb", DEFAULT_MIN_SIZE_GB)
     try:
         min_size_gb = float(raw_min_size)
         if (

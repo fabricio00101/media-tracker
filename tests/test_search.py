@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
 
-@patch("routes.search.requests.get")
+@patch("services.prowlarr_service.requests.get")
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 @patch("routes.search.get_tmdb_info")
 def test_search_api_success(mock_get_tmdb, mock_get_prowlarr, client):
@@ -35,7 +35,7 @@ def test_search_api_success(mock_get_tmdb, mock_get_prowlarr, client):
     assert data["results"][0]["group_info"]["title"] == "Un Título"
     assert len(data["results"][0]["torrents"]) == 1
 
-@patch("routes.search.requests.get")
+@patch("services.prowlarr_service.requests.get")
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 def test_search_api_empty_query(mock_get_prowlarr, client):
     response = client.get("/api/search?query=")
@@ -44,7 +44,7 @@ def test_search_api_empty_query(mock_get_prowlarr, client):
     assert "error" in data
 
 
-@patch("routes.search.requests.get")
+@patch("services.prowlarr_service.requests.get")
 @patch("routes.search.config.PROWLARR_API_KEY", "mock_key")
 @patch("routes.search.get_tmdb_info")
 def test_search_api_pagination(mock_get_tmdb, mock_get_prowlarr, client):
@@ -151,7 +151,7 @@ def test_prowlarr_responses_robustness(client):
             {"size": 1024**3 * 5},  # Elemento sin título
         ]
     }
-    with patch("routes.search.requests.get", return_value=res_obj), \
+    with patch("services.prowlarr_service.requests.get", return_value=res_obj), \
          patch("routes.search.get_tmdb_info", return_value=None):
         r = client.get("/api/search?query=peli&min_size_gb=1")
         assert r.status_code == 200
@@ -162,7 +162,7 @@ def test_prowlarr_responses_robustness(client):
     res_bad = MagicMock()
     res_bad.status_code = 200
     res_bad.json.return_value = "Respuesta no esperada"
-    with patch("routes.search.requests.get", return_value=res_bad):
+    with patch("services.prowlarr_service.requests.get", return_value=res_bad):
         r = client.get("/api/search?query=otra_peli_diferente&min_size_gb=1")
         assert r.status_code == 502
         assert "Estructura de respuesta inesperada" in r.get_json()["error"]
@@ -221,7 +221,7 @@ def test_grouping_separates_movie_and_tv(client):
             "media_type": "tv" if is_tv else "movie",
         }
 
-    with patch("routes.search.requests.get", return_value=res_mock), \
+    with patch("services.prowlarr_service.requests.get", return_value=res_mock), \
          patch("routes.search.get_tmdb_info", side_effect=mock_tmdb):
         r = client.get("/api/search?query=The+Flash&min_size_gb=1")
         assert r.status_code == 200
@@ -264,7 +264,7 @@ def test_search_incluye_estimacion_tecnica(client):
             "magnetUrl": "magnet:x",
         }
     ]
-    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+    with patch("services.prowlarr_service.requests.get", return_value=_mock_prowlarr_items(items)), \
          patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
         r = client.get("/api/search?query=Peli&min_size_gb=1")
         assert r.status_code == 200
@@ -299,7 +299,7 @@ def test_min_bpp_filtra_torrents_de_baja_calidad(client):
             "magnetUrl": "magnet:alta",
         },
     ]
-    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+    with patch("services.prowlarr_service.requests.get", return_value=_mock_prowlarr_items(items)), \
          patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
         r = client.get("/api/search?query=Peli&min_size_gb=0.5&min_bpp=0.07")
         assert r.status_code == 200
@@ -327,7 +327,7 @@ def test_sdr_only_descarta_hdr(client):
             "magnetUrl": "magnet:sdr",
         },
     ]
-    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+    with patch("services.prowlarr_service.requests.get", return_value=_mock_prowlarr_items(items)), \
          patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
         r = client.get("/api/search?query=Peli&min_size_gb=1&sdr_only=true")
         assert r.status_code == 200
@@ -355,7 +355,7 @@ def test_orden_por_bpp(client):
             "magnetUrl": "magnet:buena",
         },
     ]
-    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+    with patch("services.prowlarr_service.requests.get", return_value=_mock_prowlarr_items(items)), \
          patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
         por_seeders = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=seeders_desc")
         por_bpp = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=bpp_desc")
@@ -384,7 +384,7 @@ def test_orden_por_bpp_dentro_del_grupo(client):
             "magnetUrl": "magnet:alta",
         },
     ]
-    with patch("routes.search.requests.get", return_value=_mock_prowlarr_items(items)), \
+    with patch("services.prowlarr_service.requests.get", return_value=_mock_prowlarr_items(items)), \
          patch("routes.search.get_tmdb_info", side_effect=_mock_tmdb_con_runtime):
         r = client.get("/api/search?query=Peli&min_size_gb=0.5&sort=bpp_desc")
         assert r.status_code == 200

@@ -127,7 +127,7 @@ def test_deluge_tiene_rate_limit(client):
 # 4) La API key de Prowlarr viaja por header, nunca por query string
 # ---------------------------------------------------------------------------
 @patch("routes.search.config.PROWLARR_API_KEY", "super-secreta")
-@patch("routes.search.requests.get")
+@patch("services.prowlarr_service.requests.get")
 def test_prowlarr_api_key_por_header(mock_get, client):
     mock_res = mock_get.return_value
     mock_res.status_code = 200

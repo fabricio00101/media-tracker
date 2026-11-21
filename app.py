@@ -1,11 +1,12 @@
 import os
 import logging
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from extensions import cache, limiter
 from routes.search import search_bp
 from routes.subtitles import subtitles_bp
 from routes.deluge import deluge_bp
 import config
+from utils.validators import DEFAULT_MIN_SIZE_GB
 
 # Configurar logging básico
 logging.basicConfig(
@@ -24,6 +25,8 @@ def set_security_headers(response):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Aísla la ventana de terceros sin romper la app (CSP/HSTS quedan pendientes)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     return response
 
 
@@ -124,24 +127,52 @@ app.register_blueprint(deluge_bp)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template(
+        "index.html",
+        default_min_size_gb=DEFAULT_MIN_SIZE_GB,
+        api_token=config.API_SECRET_TOKEN,
+    )
+
+
+@app.route("/assets/<path:filename>")
+def serve_asset(filename):
+    """Sirve imágenes del proyecto (p. ej. la captura usada en og:image)."""
+    return send_from_directory(os.path.join(app.root_path, "assets"), filename)
+
+
+def _server_host():
+    """Host de escucha configurable; por defecto solo localhost."""
+    return os.getenv("HOST", "127.0.0.1")
+
+
+def _server_port():
+    """Puerto de escucha configurable."""
+    try:
+        return int(os.getenv("PORT", "5000"))
+    except ValueError:
+        return 5000
 
 
 if __name__ == "__main__":
     env = os.getenv("FLASK_ENV", "production")
+    host = _server_host()
+    port = _server_port()
     if env == "development":
-        logging.info("Iniciando servidor en modo DESARROLLO (Flask)...")
-        app.run(host="0.0.0.0", debug=True, port=5000)
+        logging.info("Iniciando servidor en modo DESARROLLO (Flask) en %s:%s...", host, port)
+        # debug nunca activo: el depurador expone código y ejecución arbitraria
+        app.run(host=host, debug=False, port=port)
     else:
         try:
             from waitress import serve
 
             logging.info(
-                "Iniciando servidor en modo PRODUCCIÓN (Waitress) en el puerto 5000..."
+                "Iniciando servidor en modo PRODUCCIÓN (Waitress) en %s:%s...",
+                host,
+                port,
             )
-            serve(app, host="0.0.0.0", port=5000)
+            serve(app, host=host, port=port)
         except ImportError:
             logging.warning(
                 "Waitress no está instalado. Ejecutando con servidor de desarrollo (inseguro para pro)."
             )
-            app.run(host="0.0.0.0", port=5000)
+            app.run(host=host, port=port)

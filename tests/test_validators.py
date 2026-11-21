@@ -27,7 +27,8 @@ def test_validator_success():
 def test_validator_defaults():
     params = validate_search_params({"query": "Gladiator"})
     assert params["category"] == "all"
-    assert params["min_size_gb"] == 15.0
+    # Default unificado con la UI (templates/index.html ya no tiene su propio 5)
+    assert params["min_size_gb"] == 5.0
     assert params["quality_tag"] == ""
     assert params["require_hdr"] is False
     assert params["require_hevc"] is False

@@ -1,5 +1,18 @@
 import re
 
+from utils.audio_patterns import detect_audio_codec
+
+# Traducción de la etiqueta canónica a la etiqueta de UI existente.
+_AUDIO_DISPLAY = {
+    "Atmos": "Dolby Atmos / TrueHD",
+    "TrueHD": "Dolby Atmos / TrueHD",
+    "DTS-HD": "DTS-HD / X",
+    "DD+": "Dolby Digital Plus",
+    "DD": "Dolby Digital",
+    "DTS": "DTS",
+    "AAC": "AAC",
+}
+
 
 def detect_spanish(title_lower):
     """Detecta el soporte de español a partir del título en minúsculas.
@@ -54,20 +67,12 @@ def detect_spanish(title_lower):
 
 
 def detect_audio(title_lower):
-    """Detecta el formato de audio a partir del título en minúsculas."""
-    if re.search(r"\b(atmos|truehd|true-hd)\b", title_lower):
-        return "Dolby Atmos / TrueHD"
-    if re.search(r"\b(dts-hd|dts:x|dts-x|dtshd)\b", title_lower):
-        return "DTS-HD / X"
-    if re.search(r"\b(eac3|ddp5\.1|ddp|dd\+)\b", title_lower):
-        return "Dolby Digital Plus"
-    if re.search(r"\b(dd5\.1|dolby|ac3)\b", title_lower):
-        return "Dolby Digital"
-    if re.search(r"\bdts\b", title_lower):
-        return "DTS"
-    if re.search(r"\baac(\d|\b)", title_lower):
-        return "AAC"
-    return None
+    """Detecta el formato de audio a partir del título en minúsculas.
+
+    Usa la misma fuente de patrones que la estimación técnica; los códecs que
+    no aportan información de idioma (FLAC/Opus/MP3) devuelven None.
+    """
+    return _AUDIO_DISPLAY.get(detect_audio_codec(title_lower))
 
 
 def matches_language(spanish_support, lang_filters):

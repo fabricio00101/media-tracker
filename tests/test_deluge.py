@@ -13,16 +13,24 @@ import requests
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _mock_response(status_code=200, json_data=None, raise_exc=None, content=b""):
+def _mock_response(status_code=200, json_data=None, raise_exc=None, content=b"", headers=None):
     """Devuelve un MagicMock que imita un requests.Response."""
     res = MagicMock()
     res.status_code = status_code
     res.json.return_value = json_data if json_data is not None else {}
     res.content = content
+    res.headers = headers or {}
     if raise_exc:
         res.raise_for_status.side_effect = raise_exc
     else:
         res.raise_for_status.return_value = None
+
+    # La descarga usa stream=True + iter_content: se emula el streaming real.
+    def _iter_content(chunk_size=65536):
+        for i in range(0, len(content), chunk_size):
+            yield content[i : i + chunk_size]
+
+    res.iter_content.side_effect = _iter_content
     return res
 
 
@@ -153,7 +161,7 @@ def test_deluge_login_excepcion_generica(client):
 def test_deluge_descarga_torrent_exitoso(mock_safe, client):
     """URL HTTP segura: descarga 200 → core.add_torrent_file → 200."""
     login_res = _mock_response(json_data={"result": True})
-    t_res = _mock_response(content=b"contenido-del-torrent")
+    t_res = _mock_response(content=b"d8:announce4:test4:infod4:name4:teste")
     add_res = _mock_response(json_data={})
 
     mock_session = MagicMock()
