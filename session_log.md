@@ -837,3 +837,31 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Se contrastó el análisis externo: no es correcto que el proyecto solo admita magnets puros ni que bloquee localhost por diseño.
 - `services/search_service.py` selecciona `magnetUrl` o `downloadUrl`; `routes/deluge.py` descarga URLs HTTP(S), valida cada redirección y admite redirección final a magnet.
 - El fallo de `localhost -> ::1` era un falso positivo de la clasificación `is_reserved` en Python 3.15; se corrigió en `dist-fix/app.exe`. La captura anterior corresponde a la compilación diagnóstica previa al arreglo.
+
+## Sesión 2026-11-22 — Ajustes de contraste de texto
+
+### Qué se completó
+- Se elevó el contraste del placeholder de búsqueda (`/60` a `/80`; de aproximadamente 3.1:1 a 5.1:1 sobre el fondo de la búsqueda).
+- Se cambiaron textos de error pálidos por el token oscuro `on-error-container` para mantener legibilidad sobre fondos claros.
+- Se ajustaron badges de temporada completa y estados de éxito para usar pares de color diseñados para fondos claros.
+- Se oscurecieron chips de calidad sin datos/bitrate, botones deshabilitados e iconos de estados vacíos; el texto gris del pie de la página de error pasó de `gray-500` a `gray-400`.
+
+### Qué quedó pendiente
+- Revisión visual en navegador cuando el servidor local esté iniciado. En esta sesión `localhost:5000` no respondió.
+
+### Decisiones tomadas
+- Se conservaron los colores y el tema general; se corrigieron combinaciones con contraste insuficiente.
+- No se ejecutaron tests.
+
+## Sesión 2026-11-22 (cont.) — Contraste, lanzador y compilación
+
+### Qué se completó
+- Se recompiló `dist/app.exe` desde `app.spec`; PyInstaller terminó correctamente con los cambios de contraste incluidos.
+- Se ordenó `iniciar-media-tracker.bat`: se quitó el banner de compilación obsoleto, se describieron correctamente los reintentos de disponibilidad y se restauró la indicación para revisar los registros de FlareSolverr ante un fallo.
+- Se conservaron los tiempos de espera ampliados que ya tenía el lanzador.
+
+### Qué quedó pendiente
+- No se ejecutaron tests ni se hizo una revisión visual del ejecutable.
+
+### Decisiones tomadas
+- El lanzador continúa iniciando `dist\\app.exe` desde la raíz del proyecto para cargar `.env` desde el directorio de trabajo.

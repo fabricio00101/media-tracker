@@ -13,6 +13,8 @@ set "APP_EXE=%ROOT%dist\app.exe"
 set "FS_URL=http://127.0.0.1:8191/"
 set "APP_URL=http://127.0.0.1:5000/"
 
+rem --- Inicio y comprobación de disponibilidad de servicios ---
+
 echo ============================================================
 echo   Media Tracker + FlareSolverr - Iniciador unico
 echo ============================================================
@@ -53,10 +55,13 @@ if "!FS_PROC!"=="0" (
         set "LANG=en-US"
         set "LOG_LEVEL=info"
         start "FlareSolverr - registros" /D "%FS_DIR%" "%FS_EXE%"
+        rem --- Esperar 5s para que FlareSolverr se inicialice ---
+        ping -n 6 127.0.0.1 >nul 2>&1
     )
 )
 
-call :wait_url "%FS_URL%" 1 30
+rem --- Reintentar FlareSolverr hasta 60 veces (cada intento puede tardar 5s) ---
+call :wait_url "%FS_URL%" 1 60
 if errorlevel 1 (
     echo [ERROR] FlareSolverr no respondio en %FS_URL% dentro del tiempo esperado.
     if "!FS_OCUPADO!"=="1" echo         El puerto 8191 puede estar ocupado por otro programa.
@@ -85,7 +90,8 @@ if "!APP_PROC!"=="0" (
     )
 )
 
-call :wait_url "%APP_URL%" 0 20
+rem --- Reintentar Media Tracker hasta 30 veces (cada intento puede tardar 5s) ---
+call :wait_url "%APP_URL%" 0 30
 if errorlevel 1 (
     echo [ERROR] Media Tracker no respondio en %APP_URL% dentro del tiempo esperado.
     if "!APP_OCUPADO!"=="1" echo         El puerto 5000 puede estar ocupado por otro programa.

@@ -221,7 +221,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                   <div class="flex flex-col flex-grow h-full">
                       <div class="flex justify-between items-start mb-2">
                            <h3 class="font-serif font-headline-md text-headline-md text-charcoal leading-tight mb-1">${escapeHtml(info.title)} <span class="font-sans text-on-surface-variant text-sm">(${escapeHtml(info.year || "?")})</span></h3>
-                           <button type="button" data-fav-remove="${escapeHtml(fav.key)}" data-fav-info="${escapeHtml(encodeData(info))}" class="text-error hover:text-error-container p-2 ml-2 bg-error/10 rounded-full transition-colors" title="Eliminar de favoritos">
+                           <button type="button" data-fav-remove="${escapeHtml(fav.key)}" data-fav-info="${escapeHtml(encodeData(info))}" class="text-error hover:text-on-error-container p-2 ml-2 bg-error/10 rounded-full transition-colors" title="Eliminar de favoritos">
                                <span class="material-symbols-outlined text-[18px]">delete</span>
                            </button>
                       </div>
@@ -462,7 +462,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               setTimeout(() => {
                   btnEl.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> Listo';
                   btnEl.classList.remove("bg-primary", "hover:bg-deep-bordeaux");
-                  btnEl.classList.add("bg-tertiary-container/30", "text-on-tertiary-container");
+                  btnEl.classList.add("bg-tertiary-fixed/30", "text-on-tertiary-fixed");
               }, 1000);
           } catch(err) {
               clearTimeout(timeoutId);
@@ -537,7 +537,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             text: "WEB-DL",
           };
         return {
-          class: "bg-outline-variant/20 text-outline border-outline",
+          class: "bg-outline-variant/20 text-on-surface-variant border-outline",
           text: "BDRip / Estándar",
         };
       };
@@ -560,7 +560,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         muy_bueno: "bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant border-tertiary-fixed-dim",
         correcto: "bg-secondary-fixed/20 text-on-secondary-fixed border-secondary-fixed-dim",
         flojo: "bg-error-container/20 text-on-error-container border-error-container",
-        sin_datos: "bg-outline-variant/20 text-outline border-outline",
+        sin_datos: "bg-outline-variant/20 text-on-surface-variant border-outline",
       };
 
       const techChip = (text, extraClass, title) =>
@@ -596,14 +596,14 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         }
         if (typeof tech.mbps === "number") {
           chips.push(
-            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-outline border-outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
+            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-on-surface-variant border-outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
           );
         }
         if (typeof tech.bpp === "number") {
           chips.push(
             techChip(
               `${tech.bpp.toFixed(3)} bpp`,
-              "bg-outline-variant/20 text-outline border-outline",
+              "bg-outline-variant/20 text-on-surface-variant border-outline",
               `Bits por píxel estimados con ${tech.fps} fps asumidos. Más alto = mejor calidad por tamaño.`,
             ),
           );
@@ -622,7 +622,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           // El usuario pidió filtrar por bpp pero faltan datos: se avisa que
           // el filtro no se aplicó en vez de descartar el resultado.
           chips.push(
-            techChip("bpp n/d", "bg-outline-variant/20 text-outline border-outline", tech.bpp_note),
+            techChip("bpp n/d", "bg-outline-variant/20 text-on-surface-variant border-outline", tech.bpp_note),
           );
         }
         return chips.join("");
@@ -657,7 +657,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // temporada completa (no existe "el" subtítulo de una temporada).
       const buildSubtitlesButton = (info, episodes) => {
         const deshabilitado =
-          "bg-outline-variant/20 border border-outline text-outline px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed";
+          "bg-outline-variant/20 border border-outline text-on-surface-variant px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 cursor-not-allowed";
 
         if (!info.id) {
           return `<button type="button" disabled title="Falta TMDB_API_KEY en el servidor; no hay TMDB ID para buscar" class="${deshabilitado}">
@@ -723,7 +723,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               : `<span class="text-xs text-on-surface-variant">Sin link</span>`;
 
             const fullSeasonBadge = t.is_full_season
-              ? `<span class="px-2 py-1 bg-tertiary-container/20 text-on-tertiary-container border-tertiary-container flex-shrink-0 text-[10px] font-medium rounded border"><span class="material-symbols-outlined text-[10px] mr-1">star</span>Temporada Completa</span>`
+              ? `<span class="px-2 py-1 bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim flex-shrink-0 text-[10px] font-medium rounded border"><span class="material-symbols-outlined text-[10px] mr-1">star</span>Temporada Completa</span>`
               : "";
 
             torrentsHTML += `
