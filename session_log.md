@@ -736,3 +736,104 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Con `min_bpp` activo y sin duración de TMDB, el resultado **no se descarta**: se marca con la nota "bpp no disponible: filtro no aplicado" para no perder resultados por falta de datos.
 - El token de API se inyecta en un `<meta>` renderizado por Jinja (autoescape activo) y se envía como `X-Api-Token`; si no está configurado, el header no se envía.
 - No se agregaron dependencias: `requirements.txt` y `app.spec` quedaron intactos. No se hizo commit ni push.
+
+---
+
+## Sesión 2026-11-21 (cont.) — Diagnóstico y análisis del estado actual del proyecto
+
+### Qué se completó
+- **Auditoría completa del estado de la aplicación**:
+  - **Suite de pruebas**: 134/134 tests pasando (100% verde en ~7-11 s).
+  - **Cobertura de código**: 91% en total sobre el código de producción medido con `pytest-cov`.
+  - **Sintaxis y compilación**: `node --check static/js/app.js` OK (sin errores de sintaxis); `compileall` en Python sin advertencias.
+  - **Control de versiones (Git)**:
+    - Rama activa: `feature/stitch-design-system` al día con `origin/feature/stitch-design-system`.
+    - Diferencia con `main`: 2 commits por delante (`9b3d59c` con el diseño Filmoteca Editorial y `27384d7` con la resolución de 25+ correcciones técnicas y de seguridad).
+    - Árbol de trabajo limpio (solo `build_log.txt` untracked, generado por PyInstaller).
+  - **Servicios e infraestructura local**:
+    - **Prowlarr**: Activo y escuchando en el puerto 9696 (PID 13432).
+    - **Deluge**: Activo y escuchando en el puerto 8112 (PID 14084).
+    - **FlareSolverr**: Detenido (puerto 8191 libre; operable vía `iniciar-media-tracker.bat` o standalone).
+    - **Media Tracker**: Detenido (puerto 5000 libre; ejecutable `dist/app.exe` recompilado y listo).
+  - **Configuración (`.env`)**: Variables críticas (`PROWLARR_*`, `TMDB_*`, `OPENSUBTITLES_*`, `DELUGE_*`) presentes y operativas.
+
+### Qué quedó pendiente
+- Integración/Merge de `feature/stitch-design-system` a `main` cuando se decida consolidar la release.
+- Decidir si ignorar `build_log.txt` en `.gitignore` o eliminarlo.
+- Iniciar FlareSolverr en caso de usar indexers de Prowlarr con Cloudflare activo.
+
+### Decisiones tomadas
+- Se mantuvieron inalteradas las fuentes y configuración durante el diagnóstico (modo auditoría de solo lectura).
+
+
+## Sesión 2026-11-22 — Diagnóstico de rechazo de URL en Deluge
+
+### Qué se completó
+- Se rastreó el mensaje del navegador hasta `routes/deluge.py`: `_download_torrent()` devuelve "URL de descarga rechazada: el destino no está permitido." cuando la URL recibida inicialmente no pasa `_is_safe_remote_url()`.
+- Se confirmó que la URL proviene de `magnetUrl` o `downloadUrl` de Prowlarr (`services/search_service.py`). Si es una URL web, el backend valida esquema y resolución DNS antes de hacer la petición.
+- Se revisó la configuración: `PROWLARR_URL=http://localhost:9696`; `SSRF_ALLOW_PRIVATE_TARGETS` no aparece en `.env`, por lo que aplica el valor predeterminado `true` y permite localhost/LAN. Siguen bloqueados destinos link-local/reservados, multicast y no especificados; también se rechazan esquemas que no sean HTTP(S) o nombres no resolubles.
+
+### Qué quedó pendiente
+- Confirmar cuál URL de descarga devuelve el resultado de Prowlarr que falla. El mensaje por sí solo no incluye el hostname para no exponer detalles de la petición.
+- No se modificó código ni configuración y no se ejecutaron tests; el usuario pidió diagnóstico.
+
+### Decisiones tomadas
+- Mantener las protecciones SSRF. Para aislar el caso, revisar el `downloadUrl` del resultado y su DNS/ruta; no desactivar el control sin identificar el destino.
+
+## Sesión 2026-11-22 (cont.) — Diagnóstico más claro de URL bloqueada
+
+### Qué se completó
+- `routes/deluge.py` ahora identifica en el error si la URL inicial tiene un esquema no permitido, no tiene host, el host no resuelve por DNS o resuelve a una dirección bloqueada por seguridad.
+- Se mantuvo intacta la política de seguridad: no se habilitaron rangos especiales ni se desactivó la validación SSRF.
+
+### Qué quedó pendiente
+- El destino concreto que devuelve Prowlarr no está disponible en el contexto, así que todavía no se puede corregir su URL/DNS o configuración del indexer.
+- No se ejecutaron tests.
+
+### Decisiones tomadas
+- No permitir a ciegas destinos especiales: se conserva el rechazo y se hace el motivo visible para orientar la corrección específica.
+
+## Sesión 2026-11-22 (cont.) — Recompilación de ejecutable
+
+### Qué se completó
+- Se reconstruyó `dist/app.exe` desde `app.spec` con PyInstaller 6.22.3; la compilación terminó correctamente.
+- El ejecutable incluye la mejora de diagnóstico en la validación de URLs de Deluge.
+
+### Qué quedó pendiente
+- Probar el ejecutable en el equipo con el resultado de Prowlarr que antes fallaba.
+
+### Decisiones tomadas
+- Se usó el spec existente sin cambiar dependencias ni opciones de empaquetado.
+
+## Sesión 2026-11-22 (cont.) — Diagnóstico de IP bloqueada
+
+### Qué se completó
+- El nuevo mensaje confirma que el host de descarga de Prowlarr resuelve a una dirección que la validación SSRF bloquea.
+- Se amplió el detalle del error para mostrar el hostname y la IP resuelta, facilitando identificar si es un destino especial o una IP privada bloqueada por configuración.
+- La instancia activa mantenía `dist/app.exe` bloqueado; sin detenerla, se compiló con éxito una versión diagnóstica en `dist-diagnostico/app.exe` usando `app.spec` y una ruta de salida separada.
+
+### Qué quedó pendiente
+- Cerrar la instancia actual del puerto 5000, arrancar la compilación diagnóstica con el directorio de trabajo del proyecto y volver a intentar el mismo resultado.
+- Con el hostname/IP visibles se puede decidir si corregir el indexer/DNS o la política local sin abrir acceso a destinos no confiables.
+
+### Decisiones tomadas
+- No se permitió la IP bloqueada automáticamente. Se conserva el control SSRF y se revela la IP para corregir la causa concreta.
+
+## Sesión 2026-11-22 (cont.) — Corrección de localhost IPv6 en SSRF
+
+### Qué se completó
+- El mensaje de prueba identificó el falso positivo: `localhost` resuelve a `::1`, y Python 3.15 marca esa dirección como loopback, privada y reservada.
+- Se ajustó `_ip_is_blocked()` para evaluar loopback según `SSRF_ALLOW_PRIVATE_TARGETS` antes de la categoría `is_reserved`. Así `::1`/`127.0.0.1` se aceptan con la política predeterminada, mientras que link-local, unspecified, multicast y los demás rangos reservados siguen bloqueados.
+- Se compiló correctamente `app.spec` a `dist-fix/app.exe`, ya que la instancia anterior mantiene ocupados los otros ejecutables.
+
+### Qué quedó pendiente
+- Cerrar la instancia actual y probar `dist-fix/app.exe` desde la carpeta del proyecto para que cargue `.env`.
+
+### Decisiones tomadas
+- Se permitió loopback explícitamente bajo la opción ya existente para privados/loopback; no se amplió esa opción a rangos reservados genéricos.
+- No se ejecutaron tests.
+
+### Aclaración posterior — URL HTTP de Prowlarr
+- Se contrastó el análisis externo: no es correcto que el proyecto solo admita magnets puros ni que bloquee localhost por diseño.
+- `services/search_service.py` selecciona `magnetUrl` o `downloadUrl`; `routes/deluge.py` descarga URLs HTTP(S), valida cada redirección y admite redirección final a magnet.
+- El fallo de `localhost -> ::1` era un falso positivo de la clasificación `is_reserved` en Python 3.15; se corrigió en `dist-fix/app.exe`. La captura anterior corresponde a la compilación diagnóstica previa al arreglo.

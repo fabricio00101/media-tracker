@@ -52,6 +52,11 @@ def _ip_is_blocked(ip_text):
     if mapped is not None:
         addr = mapped
 
+    if addr.is_loopback:
+        # En algunas versiones de Python ::1 también se marca como reservado.
+        # Loopback se rige por la política de destinos privados configurada.
+        return not config.SSRF_ALLOW_PRIVATE_TARGETS
+
     if (
         addr.is_link_local
         or addr.is_unspecified
@@ -60,9 +65,7 @@ def _ip_is_blocked(ip_text):
     ):
         return True
 
-    if not config.SSRF_ALLOW_PRIVATE_TARGETS and (
-        addr.is_private or addr.is_loopback
-    ):
+    if not config.SSRF_ALLOW_PRIVATE_TARGETS and addr.is_private:
         return True
 
     return False
@@ -75,29 +78,41 @@ def _is_safe_remote_url(url):
     169.254.169.254, fe80::/10, 0.0.0.0/8 y sus formas IPv4-mapeadas). Los
     hosts privados/loopback se permiten según la política configurada.
     """
+    return _remote_url_rejection_reason(url) is None
+
+
+def _remote_url_rejection_reason(url):
+    """Explica por qué una URL no es segura, sin incluirla en la respuesta."""
     try:
         parsed = urlparse(url)
     except Exception:
-        return False
+        return "la URL tiene un formato inválido"
 
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return False
+    if parsed.scheme not in ("http", "https"):
+        return "solo se permiten URLs HTTP o HTTPS"
+    if not parsed.hostname:
+        return "la URL no contiene un host"
 
     try:
         infos = socket.getaddrinfo(parsed.hostname, None)
     except socket.gaierror:
-        # Nombre no resoluble: no tiene sentido intentar descargarlo
-        return False
+        return "el host no pudo resolverse por DNS"
 
     for info in infos:
-        if _ip_is_blocked(info[4][0]):
+        resolved_ip = info[4][0]
+        if _ip_is_blocked(resolved_ip):
             logging.warning(
-                "URL bloqueada por SSRF (destino no permitido): %s",
+                "URL bloqueada por SSRF: host %s resuelve a %s (URL: %s)",
+                parsed.hostname,
+                resolved_ip,
                 redact_secrets(url),
             )
-            return False
+            return (
+                f"el host {parsed.hostname} resuelve a la dirección "
+                f"{resolved_ip}, bloqueada por seguridad"
+            )
 
-    return True
+    return None
 
 
 def _looks_like_torrent(content):
@@ -143,8 +158,13 @@ def _download_torrent(url):
     ("torrent", bytes) con el contenido ya validado.
     """
     if not _is_safe_remote_url(url):
+        rejection_reason = _remote_url_rejection_reason(url)
+        if not rejection_reason:
+            rejection_reason = "el destino no está permitido por seguridad"
         raise TorrentDownloadError(
-            "URL de descarga rechazada: el destino no está permitido.", 400
+            "URL de descarga rechazada: el destino no está permitido "
+            f"({rejection_reason}).",
+            400,
         )
 
     current = url
