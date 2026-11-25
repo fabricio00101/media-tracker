@@ -914,7 +914,7 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Informe de confiabilidad de este `session_log.md`: **~95 % confiable**; detectó desajustes (conteo "16 cases" vs 14 reales, ruta de FlareSolverr desactualizada, pendientes ya resueltos sin registrar como `build_log.txt` en `.gitignore` y el merge a `main`, cobertura 93 % vs 91 %, commits no mencionados).
 
 ### Qué quedó pendiente
-- Prueba visual en navegador (Tailwind, fuentes, pósters TMDB, botón Deluge, página de error) — la hace el usuario.
+- ~~Prueba visual en navegador (Tailwind, fuentes, pósters TMDB, botón Deluge, página de error)~~ → **hecha por el usuario**: aprobada, todo se ve bien tras los cambios (CSP con nonce, token de sesión, plantillas).
 - `.env.example` documentado con `PROWLARR_TIMEOUT` (tarea hecha en paralelo por otro agente dentro de esta sesión).
 - ~~Commit de todos los cambios de la sesión~~ → **hecho**: commit `9d09c03` en `main`, "fix: corregir hallazgos de revision tecnica y actualizar docs" (15 archivos, +609/−103), con la suite en verde (**134 passed**) previo al commit.
 - De la revisión original siguen sin cerrarse: verificación dinámica en vivo de Prowlarr/Deluge/TMDB/OpenSubtitles, lectura detallada de los tests y auditoría de dependencias (`pip-audit`).
@@ -942,7 +942,7 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Esas etiquetas ahora usan texto claro `tech-text` y un fondo/borde de la paleta técnica, en lugar de colores de texto diseñados para superficies claras.
 
 ### Qué quedó pendiente
-- No se hizo una comprobación visual en el navegador. (Los tests sí se corrieron después, sobre este estado: 134 passed + checks de node, verificado antes del commit `ca7d19d`.)
+- ~~Comprobación visual en el navegador~~ → **hecha por el usuario**: aprobada. (Los tests también se corrieron sobre este estado: 134 passed + checks de node, verificados antes del commit `ca7d19d`.)
 
 ### Decisiones tomadas
 - Se conservaron los colores diferenciados de calidad (1080p, 4K, excelente, etc.) que ya se distinguen en la captura; se cambiaron solo las etiquetas técnicas de bajo contraste.
