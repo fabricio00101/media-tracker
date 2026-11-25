@@ -893,15 +893,20 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 3. **MEDIO — caché de subtítulos solo con respuestas 200** (`routes/subtitles.py`): helper `_is_successful_response` con `response_filter`, maneja tupla y `Response`; ante forma desconocida no cachea.
 4. **MEDIO — `services/tmdb.py` no cachea `None`**: se usó `response_filter` en vez de `unless` porque en Flask-Caching 2.3.1 `unless` recibe la función, no el resultado (verificado en la fuente).
 5. **MEDIO — `fetchWithRetry` en `app.js`**: solo reintenta red/502/504 con backoff; retries bajó de 2 a 1; 400/401/429 lanzan de inmediato.
+   - Además se agregó un mensaje amigable específico para HTTP 429 y el manejo de JSON inválido en la respuesta.
 6. **MEDIO — `renderFavorites`**: valida cada entrada de LocalStorage y tiene `try/catch` defensivo.
 7. **MEDIO — clipboard**: `navigator.clipboard?.writeText` con fallback a `execCommand` y `prompt`.
 8. **MEDIO — cuota de `/api/search`** subida de 30 a 60 req/min (`routes/search.py`).
+   - Los comentarios inline de `app.js` sobre la cuota seguían diciendo «30 req/min» (obsoletos; se corrigieron en la «Segunda ronda» más abajo).
 9. **MEDIO — token de OpenSubtitles validado** (`_valid_token_from_cache`) + manejo de error JSON 500 en la descarga.
 10. **BAJO — handlers 405 y 413** agregados (JSON en `/api/*`, HTML en el resto).
 11. **BAJO — `onclick` inline eliminado de `error.html`** (delegación de eventos con nonce).
 12. **BAJO — CSP con nonce por request + HSTS condicional** (`request.is_secure`) en `app.py`; nonce agregado al script inline de Tailwind en `index.html`.
 13. **BAJO — SSRF anti-DNS-rebinding en Deluge**: IP pinning (`_pinned_targets` + `_get_validado`): resuelve y re-valida IPs en el momento, GET contra la IP validada con header `Host`, failover entre IPs aprobadas; HTTPS sin fijar (el certificado vincula al nombre).
 14. **BAJO — fixes varios en `app.js`**: carrera de la barra de progreso (timeout cancelado), `sendToDeluge` con `AbortController` de 150 s, eliminado el doble ordenamiento (`applyClientSorting`; el servidor ya ordena), `visibleTorrents` ahora solo contiene torrents que pasan el filtro, página vacía muestra mensaje informativo en vez de `errorBox`, filtros re-disparan búsqueda con debounce de 600 ms.
+    - `mostrarResultadosVacios` además oculta `loadMoreContainer` y pone «SIN RESULTADOS» en el contador.
+    - `#sortSelector` re-dispara la búsqueda al servidor (contraparte de eliminar `applyClientSorting`).
+    - Guard que guarda `globalSearchParams` antes del chequeo de página vacía: clave para que los filtros re-disparen tras un resultado vacío.
 15. **DOCS — `README.md`**: tabla de endpoints actualizada (parámetros reales: `sdr_only`, `min_bpp`, `sort`; eliminados `query`/`languages` de subtitles; la descripción de deluge acepta magnet o URL `.torrent`) y `AGENTS.md` actualizado (Redis opcional, estructura routes/services/utils, Docker, comando `docker compose up -d --build`).
 - **Verificación final**: los 5 agentes developer trabajaron en paralelo y todos los fixes quedaron verificados con la suite completa en verde (**134 passed**).
 
@@ -911,7 +916,7 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 ### Qué quedó pendiente
 - Prueba visual en navegador (Tailwind, fuentes, pósters TMDB, botón Deluge, página de error) — la hace el usuario.
 - `.env.example` documentado con `PROWLARR_TIMEOUT` (tarea hecha en paralelo por otro agente dentro de esta sesión).
-- Commit de todos los cambios de la sesión (lo hará otro agente después).
+- ~~Commit de todos los cambios de la sesión~~ → **hecho**: commit `9d09c03` en `main`, "fix: corregir hallazgos de revision tecnica y actualizar docs" (15 archivos, +609/−103), con la suite en verde (**134 passed**) previo al commit.
 - De la revisión original siguen sin cerrarse: verificación dinámica en vivo de Prowlarr/Deluge/TMDB/OpenSubtitles, lectura detallada de los tests y auditoría de dependencias (`pip-audit`).
 - Pendientes históricos: M9 (CSP ahora implementado parcialmente), lock distribuido anti-*stampede* con Redis y deduplicación de torrents entre indexers.
 
@@ -922,3 +927,22 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - **Token de sesión** en lugar de quitar el meta tag, para no romper `app.js` que lee `meta[name="api-token"]`.
 - CSP con `'unsafe-eval'` defensivo para el JIT de Tailwind Play CDN.
 - Re-búsqueda con **debounce** para los filtros en vez de re-render local (el servidor también pagina y filtra).
+
+### Segunda ronda — correcciones menores (mismo día)
+- Se actualizaron los comentarios de rate limit de `app.js` de 30 a 60 req/min, en línea con la cuota nueva de `/api/search`.
+- Se eliminó el dato sin consumidores `visibleTorrents`/`torrentsVisibles` (verificado por grep que nadie lo leía).
+- **Refresh pendiente**: cambiar un filtro durante una búsqueda en curso ya no se pierde; el re-disparo se ejecuta al terminar la búsqueda en curso, una sola vez.
+- El re-disparo de filtros con debounce de 600 ms se extendió al slider de tamaño mínimo (`#visible_min_size`) y a los radios de categoría.
+- Nota: la app se recompila (PyInstaller) y todos estos cambios quedan en el commit final de la sesión.
+
+## Sesión 2026-11-25 — Contraste de etiquetas técnicas
+
+### Qué se completó
+- Se mejoró el contraste de las etiquetas WEB-DL/estándar, bitrate, bpp, fuente y estado sin datos que aparecen sobre tarjetas oscuras.
+- Esas etiquetas ahora usan texto claro `tech-text` y un fondo/borde de la paleta técnica, en lugar de colores de texto diseñados para superficies claras.
+
+### Qué quedó pendiente
+- No se ejecutaron tests ni se hizo una comprobación visual en el navegador.
+
+### Decisiones tomadas
+- Se conservaron los colores diferenciados de calidad (1080p, 4K, excelente, etc.) que ya se distinguen en la captura; se cambiaron solo las etiquetas técnicas de bajo contraste.

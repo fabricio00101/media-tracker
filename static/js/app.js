@@ -524,10 +524,12 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           if(e.target === subModal) document.getElementById('closeSubtitlesBtn').click();
       });
 
-      visibleMinSize.addEventListener(
-        "input",
-        (e) => (hiddenMinSize.value = e.target.value),
-      );
+      // Sincroniza el input oculto y, con el mismo debounce que el resto de los
+      // filtros, repite la búsqueda cuando cambia el tamaño mínimo.
+      visibleMinSize.addEventListener("input", (e) => {
+        hiddenMinSize.value = e.target.value;
+        refrescarBusquedaFiltrada();
+      });
 
       // Panel de filtros avanzados: visible/oculto con una clase (sin onclick
       // inline) y estado accesible en aria-expanded.
@@ -543,12 +545,30 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // --- Filtros: al cambiar uno se repite la búsqueda ---
       // Los filtros se leían solo al enviar el formulario, así que un cambio
       // sobre resultados ya renderizados no tenía efecto visible. Con debounce
-      // se evita gastar la cuota de rate limit (30 req/min) si el usuario
+      // se evita gastar la cuota de rate limit (60 req/min) si el usuario
       // marca varios filtros seguidos.
       let filterRefreshTimer = null;
+      // Búsqueda en vuelo (mientras dura, globalSearchParams es null) y refresh
+      // pedido durante esa vuelo: se acumula en un único flag y se dispara al
+      // terminar la búsqueda, como máximo una vez.
+      let busquedaEnCurso = false;
+      let filtroPendiente = false;
+
+      // Lanza el refresh pendiente una sola vez: limpia el flag antes de
+      // disparar para no encadenar submits en bucle infinito.
+      const dispararRefreshPendiente = () => {
+        if (!filtroPendiente) return;
+        filtroPendiente = false;
+        document.getElementById("searchForm")?.requestSubmit();
+      };
+
       const refrescarBusquedaFiltrada = () => {
         // Sin búsqueda previa no hay nada que refrescar (no lanzar búsquedas solas)
-        if (!globalSearchParams) return;
+        if (!globalSearchParams) {
+          // Hay una búsqueda en curso: el cambio se aplica cuando termine
+          if (busquedaEnCurso) filtroPendiente = true;
+          return;
+        }
         clearTimeout(filterRefreshTimer);
         filterRefreshTimer = setTimeout(() => {
           filterRefreshTimer = null;
@@ -583,6 +603,14 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         document.getElementById(id)?.addEventListener("change", refrescarBusquedaFiltrada);
       });
 
+      // Categoría (radios): cambiar de categoría también repite la búsqueda
+      // con el mismo debounce que el resto de los filtros.
+      document
+        .querySelectorAll('input[name="category"]')
+        .forEach((radio) =>
+          radio.addEventListener("change", refrescarBusquedaFiltrada),
+        );
+
       // --- Procesamiento de grupos (reutilizado por la paginación server-side) ---
       const getQualityBadge = (title) => {
         const text = title.toLowerCase();
@@ -603,18 +631,18 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           };
         if (text.includes("webrip") || text.includes("web-dl"))
           return {
-            class: "bg-surface-variant/20 text-on-surface-variant border-outline-variant",
+            class: "bg-tech-border/40 text-tech-text border-tech-secondary/60",
             text: "WEB-DL",
           };
         return {
-          class: "bg-outline-variant/20 text-on-surface-variant border-outline",
+          class: "bg-tech-border/40 text-tech-text border-tech-secondary/60",
           text: "BDRip / Estándar",
         };
       };
 
       const getSpanishBadge = (supportType) => {
         if (!supportType) return "";
-        let colorClass = "bg-surface-variant/20 text-on-surface-variant border-outline-variant";
+        let colorClass = "bg-tech-border/40 text-tech-text border-tech-secondary/60";
         let icon = '<span class="material-symbols-outlined text-[10px] mr-1">comment</span>';
         if (supportType === "Latino" || supportType === "Castellano") {
           colorClass = "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed-dim";
@@ -630,7 +658,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         muy_bueno: "bg-tertiary-fixed-dim/20 text-on-tertiary-fixed-variant border-tertiary-fixed-dim",
         correcto: "bg-secondary-fixed/20 text-on-secondary-fixed border-secondary-fixed-dim",
         flojo: "bg-error-container/20 text-on-error-container border-error-container",
-        sin_datos: "bg-outline-variant/20 text-on-surface-variant border-outline",
+        sin_datos: "bg-tech-border/40 text-tech-text border-tech-secondary/60",
       };
 
       const techChip = (text, extraClass, title) =>
@@ -646,7 +674,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
         if (tech.source) {
           chips.push(
-            techChip(tech.source, "bg-surface-container-high/20 text-on-surface-variant border-outline-variant", "Fuente inferida del nombre"),
+            techChip(tech.source, "bg-tech-border/40 text-tech-text border-tech-secondary/60", "Fuente inferida del nombre"),
           );
         }
         if (tech.bit_depth) {
@@ -666,14 +694,14 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         }
         if (typeof tech.mbps === "number") {
           chips.push(
-            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-outline-variant/20 text-on-surface-variant border-outline", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
+            techChip(`${tech.mbps.toFixed(1)} Mbps`, "bg-tech-border/40 text-tech-text border-tech-secondary/60", "Bitrate estimado: tamaño ÷ duración (TMDB)"),
           );
         }
         if (typeof tech.bpp === "number") {
           chips.push(
             techChip(
               `${tech.bpp.toFixed(3)} bpp`,
-              "bg-outline-variant/20 text-on-surface-variant border-outline",
+              "bg-tech-border/40 text-tech-text border-tech-secondary/60",
               `Bits por píxel estimados con ${tech.fps} fps asumidos. Más alto = mejor calidad por tamaño.`,
             ),
           );
@@ -692,7 +720,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           // El usuario pidió filtrar por bpp pero faltan datos: se avisa que
           // el filtro no se aplicó en vez de descartar el resultado.
           chips.push(
-            techChip("bpp n/d", "bg-outline-variant/20 text-on-surface-variant border-outline", tech.bpp_note),
+            techChip("bpp n/d", "bg-tech-border/40 text-tech-text border-tech-secondary/60", tech.bpp_note),
           );
         }
         return chips.join("");
@@ -761,9 +789,6 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
           let torrentsHTML = "";
           let visibleCount = 0;
-          // Torrents que superan el filtro de idioma: es la lista "visible"
-          // real (group.torrents trae todos, filtrados o no).
-          const torrentsVisibles = [];
           group.torrents.forEach((t) => {
             const support = t.spanish_support;
             let show = false;
@@ -779,7 +804,6 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
             if (!show) return;
             visibleCount++;
-            torrentsVisibles.push(t);
             const badge = getQualityBadge(t.title);
             // escapeHtml cubre también el atributo: ningún metadato externo entra crudo
             const safeMagnet = escapeHtml(t.magnet || "");
@@ -831,7 +855,6 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             validGroups.push({
               info: info,
               visibleTorrentsHTML: torrentsHTML,
-              visibleTorrents: torrentsVisibles,
               visibleCount: visibleCount,
               groupKey: `fav_${info.title.replace(/\s+/g, "_")}_${info.year}`,
               episodes: buildEpisodeList(group.torrents),
@@ -868,6 +891,10 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           activeSearchController = new AbortController();
           const searchSignal = activeSearchController.signal;
           showGlobalLoader();
+
+          // Marca la búsqueda como en vuelo: si el usuario toca un filtro
+          // mientras la UI dice "Buscando...", el refresh queda pendiente.
+          busquedaEnCurso = true;
 
           const query = document.getElementById("query").value;
           const minSize = hiddenMinSize.value;
@@ -908,12 +935,17 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           globalHasMore = false;
           globalTotalGroups = 0;
           globalSearchParams = null;
+          // Esta búsqueda ya lee los filtros actuales del DOM: descarta el
+          // refresh pendiente y el debounce armado (evita peticiones duplicadas).
+          filtroPendiente = false;
+          clearTimeout(filterRefreshTimer);
+          filterRefreshTimer = null;
 
           // Función con reintentos para lidiar con el Timeout de Cloudflare (504 o 502) en Jackett.
           // SOLO se reintentan errores transitorios: fallos de red (TypeError),
           // 502 y 504. Los 4xx (400/401/403/404/429) y el resto de 5xx se
           // lanzan de inmediato: reintentarlos solo repite el mismo fallo y
-          // gasta la cuota de rate limit (30 req/min), pudiendo provocar un 429.
+          // gasta la cuota de rate limit (60 req/min), pudiendo provocar un 429.
           const fetchWithRetry = async (url, retries = 1) => {
               for (let i = 0; i <= retries; i++) {
                   btnText.textContent = i > 0 ? `Reintentando (${i}/${retries})...` : "Buscando...";
@@ -1057,16 +1089,20 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               btnText.textContent = "Buscar";
               btnSpinner.classList.add("hidden");
               hideGlobalLoader();
+              // Terminó la búsqueda (éxito o error): si el usuario tocó un
+              // filtro mientras estaba en vuelo, se repite una sola vez.
+              busquedaEnCurso = false;
+              dispararRefreshPendiente();
             }
           }
         });
         
         // Al cambiar el criterio se repite la búsqueda: la paginación es del
         // servidor, así que ordenar solo lo ya cargado daría resultados engañosos.
-        document.getElementById("sortSelector")?.addEventListener("change", () => {
-            if (!globalSearchParams) return;
-            document.getElementById("searchForm").requestSubmit();
-        });
+        // Usa el mismo debounce (600 ms) que el resto de los filtros.
+        document
+          .getElementById("sortSelector")
+          ?.addEventListener("change", refrescarBusquedaFiltrada);
 
         // FUNCIÓN DE RENDERIZADO POR LOTES (LAZY LOADING MANUAL)
         function renderNextBatch() {
