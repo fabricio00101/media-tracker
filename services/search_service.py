@@ -6,6 +6,7 @@ import config
 from services.tmdb import get_tmdb_info
 from utils.language_detector import detect_spanish, detect_audio, matches_language
 from utils.media_meta import estimate_quality, parse_release_meta
+from utils.dedupe import select_deduplicated_indices
 
 TMDB_MAX_WORKERS = 6
 
@@ -197,6 +198,15 @@ def process_results(
                 "is_tv": is_tv,
             }
         )
+
+    # --- Deduplicación de torrentes repetidos entre indexers ---------------
+    # Aplicar antes de la resolución de TMDB y la agrupación para evitar
+    # contar el mismo torrent (mismo infohash o mismo nombre+tamaño) dos veces.
+    # Esto reduce la carga sobre TMDB y evita filas duplicadas en los grupos.
+    winner_indices, dedup_stats = select_deduplicated_indices(prepared)
+    # Filtrar prepared para conservar solo los entries ganadores
+    prepared = [entry for i, entry in enumerate(prepared) if i in winner_indices]
+    # -----------------------------------------------------------------------
 
     # --- Resolución de metadatos en paralelo ------------------------------
     title_to_tmdb_key, tmdb_cache = resolve_titles(unique_titles, resolver=resolver)

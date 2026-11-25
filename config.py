@@ -58,6 +58,27 @@ SSRF_ALLOW_PRIVATE_TARGETS = os.getenv(
     "SSRF_ALLOW_PRIVATE_TARGETS", "true"
 ).strip().lower() not in ("false", "0", "no")
 
+# --- Lock distribuido anti-stampede --------------------------------------------
+# Cuando REDIS_URL está activo se usa un lock Redis (SET NX PX).
+# Cuando no hay Redis, se degrade al Event en memoria (_inflight_events).
+# Los tiempos son configurables por env; parseo defensivo con valores seguros.
+try:
+    LOCK_TIMEOUT = int(os.getenv("LOCK_TIMEOUT", "30"))  # segundos que se mantiene el lock
+    if LOCK_TIMEOUT < 1 or LOCK_TIMEOUT > 300:
+        LOCK_TIMEOUT = 30
+except ValueError:
+    LOCK_TIMEOUT = 30
+
+try:
+    LOCK_ACQUIRE_TIMEOUT = int(
+        os.getenv("LOCK_ACQUIRE_TIMEOUT", "5")
+    )  # máx. segundos esperando adquirir el lock
+    if LOCK_ACQUIRE_TIMEOUT < 1 or LOCK_ACQUIRE_TIMEOUT > 60:
+        LOCK_ACQUIRE_TIMEOUT = 5
+except ValueError:
+    LOCK_ACQUIRE_TIMEOUT = 5
+# -----------------------------------------------------------------------------
+
 # Tope de resoluciones de TMDB por búsqueda. Evita lanzar cientos de peticiones
 # cuando Prowlarr devuelve muchos títulos distintos. 0 = sin límite.
 try:
