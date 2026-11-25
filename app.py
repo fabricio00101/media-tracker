@@ -1,10 +1,21 @@
+import hmac
 import os
 import logging
-from flask import Flask, render_template, jsonify, request, send_from_directory
+import secrets
+from flask import (
+    Flask,
+    g,
+    render_template,
+    jsonify,
+    request,
+    send_from_directory,
+    session,
+)
 from extensions import cache, limiter
 from routes.search import search_bp
 from routes.subtitles import subtitles_bp
 from routes.deluge import deluge_bp
+from routes import deluge as deluge_routes
 import config
 from utils.validators import DEFAULT_MIN_SIZE_GB
 
@@ -18,6 +29,39 @@ app.config["SECRET_KEY"] = config.SECRET_KEY
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max payload limit
 
 
+# CSP afinada a los orígenes que la app usa realmente (verificados en
+# index.html y error.html): Tailwind CDN, Google Fonts, Font Awesome (cdnjs,
+# solo error.html) y pósters de TMDB. El Play CDN de Tailwind inyecta <style>
+# en el DOM (por eso style-src lleva 'unsafe-inline') y compila en el
+# navegador (se permite 'unsafe-eval' para no depender de ese detalle).
+CSP_TEMPLATE = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-eval' 'nonce-{nonce}' https://cdn.tailwindcss.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+    "https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; "
+    "img-src 'self' data: https://image.tmdb.org; "
+    "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+    "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+    "form-action 'self'; frame-ancestors 'self'"
+)
+
+
+@app.before_request
+def generar_nonce_csp():
+    """Genera un nonce por request para los <script> embebidos de las plantillas.
+
+    Se registra antes que el del rate limiter: así el nonce existe incluso en
+    respuestas abortadas (429).
+    """
+    g.csp_nonce = secrets.token_urlsafe(16)
+
+
+@app.context_processor
+def exponer_nonce_csp():
+    """Hace visible el nonce en cualquier plantilla (index.html y error.html)."""
+    return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
+
 @app.after_request
 def set_security_headers(response):
     """Agrega cabeceras de seguridad HTTP estándar para producción."""
@@ -25,8 +69,16 @@ def set_security_headers(response):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Aísla la ventana de terceros sin romper la app (CSP/HSTS quedan pendientes)
+    # Aísla la ventana de terceros sin romper la app
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    # Nonce propio de esta respuesta: si no hubo before_request, se genera uno
+    # igual (las respuestas sin plantilla embebida no lo necesitan coherente).
+    nonce = getattr(g, "csp_nonce", None) or secrets.token_urlsafe(16)
+    response.headers["Content-Security-Policy"] = CSP_TEMPLATE.format(nonce=nonce)
+    # HSTS únicamente cuando la petición llegó por HTTPS: nunca castiga el
+    # despliegue local por HTTP ni exige detección de TLS en el proxy.
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
     return response
 
 
@@ -92,6 +144,22 @@ def error_page_context(code, description=None):
                 "Nuestro equipo técnico ha sido notificado."
             ),
         },
+        405: {
+            "title": "Método no permitido",
+            "subtitle": "405 - Esta operación no está disponible acá",
+            "description": (
+                "El recurso no admite la operación solicitada. "
+                "Volvé al inicio y probá desde la página principal."
+            ),
+        },
+        413: {
+            "title": "Contenido demasiado grande",
+            "subtitle": "413 - El archivo supera el tamaño máximo",
+            "description": (
+                "El contenido enviado supera el límite permitido por el servidor. "
+                "Reducilo e intentá de nuevo."
+            ),
+        },
     }
 
     entry = texts.get(
@@ -112,6 +180,8 @@ def ratelimit_handler(e):
 
 
 @app.errorhandler(404)
+@app.errorhandler(405)
+@app.errorhandler(413)
 @app.errorhandler(500)
 def handle_errors(e):
     # Las rutas de API mantienen respuestas JSON; el resto usa la página de error
@@ -125,12 +195,70 @@ app.register_blueprint(subtitles_bp)
 app.register_blueprint(deluge_bp)
 
 
+# --- Token de sesión para /api/deluge/add -----------------------------------
+# El secreto estático (API_SECRET_TOKEN) NUNCA se envía al navegador: cada
+# visita a "/" recibe un token propio guardado en la sesión firmada de Flask,
+# que el JS lee desde el meta tag "api-token". routes/deluge.py sigue
+# validando contra el secreto (no se modifica); acá se envuelve su validación
+# para aceptar además el token de sesión, manteniendo el secreto como
+# alternativa para clientes externos que no usan el navegador.
+
+def _extraer_token_pedido():
+    """Devuelve el token enviado en X-Api-Token o Authorization: Bearer."""
+    token = request.headers.get("X-Api-Token") or request.headers.get(
+        "Authorization", ""
+    )
+    if token.startswith("Bearer "):
+        token = token[7:].strip()
+    return token
+
+
+def _token_de_sesion_valido():
+    """True si el token del request coincide con el de la sesión actual."""
+    esperado = session.get("api_token")
+    if not esperado:
+        return False
+    recibido = _extraer_token_pedido()
+    if not recibido:
+        return False
+    try:
+        return hmac.compare_digest(
+            recibido.encode("utf-8"), esperado.encode("utf-8")
+        )
+    except Exception:
+        return False
+
+
+def _aceptar_token_de_sesion():
+    """Envuelve la validación de routes/deluge.py para aceptar el token de sesión."""
+    original = getattr(deluge_routes, "_is_authorized", None)
+    if original is None:
+        logging.error(
+            "routes.deluge._is_authorized no existe: el token de sesión no "
+            "será aceptado en /api/deluge/add."
+        )
+        return
+
+    def _is_authorized_con_sesion():
+        if _token_de_sesion_valido():
+            return True
+        return original()
+
+    deluge_routes._is_authorized = _is_authorized_con_sesion
+
+
+_aceptar_token_de_sesion()
+
+
 @app.route("/")
 def index():
+    # Token por sesión: el secreto del servidor jamás se renderiza en el HTML.
+    if not session.get("api_token"):
+        session["api_token"] = secrets.token_urlsafe(32)
     return render_template(
         "index.html",
         default_min_size_gb=DEFAULT_MIN_SIZE_GB,
-        api_token=config.API_SECRET_TOKEN,
+        api_token=session["api_token"],
     )
 
 

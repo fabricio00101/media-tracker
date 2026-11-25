@@ -13,6 +13,22 @@ subtitles_bp = Blueprint("subtitles", __name__)
 OPENSUBTITLES_LANGUAGES = "es"
 
 
+def _is_successful_response(rv):
+    """Decide si una respuesta se cachea: solo las exitosas (200).
+
+    `cache.cached` invoca `response_filter` con el valor crudo que devolvió la
+    vista, que puede ser una tupla `(cuerpo, status)` o un objeto Response.
+    Cachear un 400/401/429/500 lo dejaría pegado 1 hora.
+    """
+    if isinstance(rv, tuple):
+        # (cuerpo, status) o (cuerpo, status, headers): status debe ser 200.
+        if len(rv) < 2 or not isinstance(rv[1], int):
+            return False
+        return rv[1] == 200
+    # Respuesta simple (jsonify): solo se cachea si su status es 200.
+    return getattr(rv, "status_code", None) == 200
+
+
 def _build_subtitles_params(tmdb_id, media_type, season, episode):
     """Construye los parámetros de búsqueda de OpenSubtitles.
 
@@ -39,7 +55,11 @@ def _build_subtitles_params(tmdb_id, media_type, season, episode):
 
 @subtitles_bp.route("/api/subtitles/search")
 @limiter.limit("10 per minute")
-@cache.cached(timeout=config.CACHE_1H, query_string=True)
+@cache.cached(
+    timeout=config.CACHE_1H,
+    query_string=True,
+    response_filter=_is_successful_response,
+)
 def search_subtitles():
     tmdb_id = (request.args.get("tmdb_id") or "").strip()
     media_type = (request.args.get("media_type") or "movie").strip().lower()
@@ -131,7 +151,14 @@ def download_subtitle():
     if not file_id.isdigit():
         return jsonify({"error": "file_id inválido: debe ser numérico"}), 400
 
-    token = get_opensubtitles_token()
+    # El login va en su propio try: si el servicio lanza (caché corrupta,
+    # backend caído), devolvemos un error JSON en vez del 500 genérico de Flask.
+    try:
+        token = get_opensubtitles_token()
+    except Exception as e:
+        logging.error("Error obteniendo token de OpenSubtitles: %s", redact_secrets(e))
+        return jsonify({"error": "Error interno al autenticar con OpenSubtitles"}), 500
+
     if not token:
         return (
             jsonify(

@@ -34,6 +34,16 @@ try:
 except ValueError:
     PROWLARR_SEARCH_LIMIT = 500
 
+# Timeout (segundos) de cada consulta a Prowlarr. Las búsquedas reales con
+# hasta 19 indexers tardaron entre 187 y 236 s (ver session_log.md), así que
+# el default es holgado y configurable desde .env (PROWLARR_TIMEOUT).
+try:
+    PROWLARR_TIMEOUT = int(os.getenv("PROWLARR_TIMEOUT", "300"))
+    if PROWLARR_TIMEOUT < 10 or PROWLARR_TIMEOUT > 600:
+        PROWLARR_TIMEOUT = 300
+except ValueError:
+    PROWLARR_TIMEOUT = 300
+
 DELUGE_URL = os.getenv("DELUGE_URL", "").rstrip("/")
 DELUGE_PASSWORD = os.getenv("DELUGE_PASSWORD", "").strip()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()

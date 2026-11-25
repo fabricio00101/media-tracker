@@ -154,7 +154,10 @@ def _format_error(message, code):
 
 
 @search_bp.route("/api/search")
-@limiter.limit("30 per minute")
+# Cuota holgada: comparten el contador la búsqueda en tiempo real (debounce
+# de 1200 ms), el botón "Cargar más" (páginas > 1) y los reintentos del
+# frontend. Con 30/min se agotaba en uso normal.
+@limiter.limit("60 per minute")
 def search():
     if not config.PROWLARR_API_KEY:
         return (

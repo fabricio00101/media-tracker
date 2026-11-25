@@ -21,14 +21,31 @@ def get_opensubtitles_token(force=False):
         return _get_opensubtitles_token_locked(force)
 
 
+def _valid_token_from_cache(token_data):
+    """Token válido desde una entrada de caché, o None si no sirve.
+
+    La entrada debe ser `(token, timestamp)` con timestamp numérico; cualquier
+    otra estructura (corrupción, cambio de formato entre versiones) se
+    descarta y se fuerza un nuevo login en lugar de reventar el desempaquetado.
+    """
+    if not isinstance(token_data, (tuple, list)) or len(token_data) != 2:
+        return None
+
+    token, timestamp = token_data
+    if not token or not isinstance(timestamp, (int, float)):
+        return None
+
+    # Verificar expiración manual (23 horas = 82800s)
+    if time.time() - timestamp >= 82800:
+        return None
+    return token
+
+
 def _get_opensubtitles_token_locked(force=False):
     if not force:
-        token_data = cache.get("opensubtitles_token_data")
-        if token_data:
-            token, timestamp = token_data
-            # Verificar expiración manual (23 horas = 82800s)
-            if time.time() - timestamp < 82800:
-                return token
+        token = _valid_token_from_cache(cache.get("opensubtitles_token_data"))
+        if token:
+            return token
 
     if (
         not config.OPENSUBTITLES_API_KEY

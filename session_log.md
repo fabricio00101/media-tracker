@@ -865,3 +865,60 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 
 ### Decisiones tomadas
 - El lanzador continúa iniciando `dist\\app.exe` desde la raíz del proyecto para cargar `.env` desde el directorio de trabajo.
+
+## Sesión 2026-11-25 — Monitoreo de búsqueda en Prowlarr
+
+### Qué se completó
+- Se observó la búsqueda `the social reckoning` en la interfaz: quedó en «BUSCANDO…», mostró «REINTENTANDO (1/2)» y «REINTENTANDO (2/2)», y terminó con un timeout de lectura de Prowlarr a los 30 segundos.
+- Se revisaron los registros locales de Prowlarr. La API `/api/v1/search` sí recibió consultas y completó respuestas HTTP 200, pero tardó entre 187 y 236 segundos en algunas ejecuciones; consultó hasta 19 indexers. También hay una ejecución de la misma frase que respondió en 3,5 segundos.
+- Los registros marcan como lentos/no disponibles a 1337x, ExtraTorrent.st, TorrentByte, Torrent Downloads y KickassTorrents, con timeouts de HTTP. Las trazas incluyen el procesamiento por FlareSolverr.
+
+### Qué quedó pendiente
+- La búsqueda falla en la interfaz porque el timeout de lectura de la app vence mucho antes de que Prowlarr termine. No se modificó la configuración ni se recompiló la app en esta sesión.
+- No se determinó todavía si conviene subir el timeout de la app, reducir/deshabilitar indexers lentos, o ambas cosas; queda probar una solución controlada.
+
+### Decisiones tomadas
+- No se lanzó otra búsqueda durante el análisis. Se correlacionó el error visible con los registros existentes de Prowlarr.
+- El servicio local de Prowlarr está respondiendo; el problema observado es la duración variable de la búsqueda y los indexers que no responden a tiempo, no una conexión rechazada inmediatamente.
+
+## Sesión 2026-11-25 (cont.) — Revisión técnica y corrección de hallazgos
+
+### Análisis inicial (revisión de solo lectura)
+- Suite completa en verde: **134 tests**, cobertura **91 %**.
+- Se encontraron **22 hallazgos**: 0 críticos, 2 altos, 6 medios y 14 bajos.
+
+### Qué se completó
+1. **ALTO — `API_SECRET_TOKEN` ya no se expone en el HTML**: `index()` emite un token por sesión (`session["api_token"]`, `secrets.token_urlsafe(32)`) y `app.py` envuelve `routes.deluge._is_authorized` para aceptar también ese token de sesión vía header (comparación con `hmac.compare_digest`). El secreto estático sigue aceptado para clientes externos y tests.
+2. **ALTO — timeout de Prowlarr configurable**: nuevo `PROWLARR_TIMEOUT` en `config.py` (default 300 s, rango 10–600, parseo defensivo) usado en `services/prowlarr_service.py` (antes 30 s fijo; las búsquedas reales tardan 187–236 s).
+3. **MEDIO — caché de subtítulos solo con respuestas 200** (`routes/subtitles.py`): helper `_is_successful_response` con `response_filter`, maneja tupla y `Response`; ante forma desconocida no cachea.
+4. **MEDIO — `services/tmdb.py` no cachea `None`**: se usó `response_filter` en vez de `unless` porque en Flask-Caching 2.3.1 `unless` recibe la función, no el resultado (verificado en la fuente).
+5. **MEDIO — `fetchWithRetry` en `app.js`**: solo reintenta red/502/504 con backoff; retries bajó de 2 a 1; 400/401/429 lanzan de inmediato.
+6. **MEDIO — `renderFavorites`**: valida cada entrada de LocalStorage y tiene `try/catch` defensivo.
+7. **MEDIO — clipboard**: `navigator.clipboard?.writeText` con fallback a `execCommand` y `prompt`.
+8. **MEDIO — cuota de `/api/search`** subida de 30 a 60 req/min (`routes/search.py`).
+9. **MEDIO — token de OpenSubtitles validado** (`_valid_token_from_cache`) + manejo de error JSON 500 en la descarga.
+10. **BAJO — handlers 405 y 413** agregados (JSON en `/api/*`, HTML en el resto).
+11. **BAJO — `onclick` inline eliminado de `error.html`** (delegación de eventos con nonce).
+12. **BAJO — CSP con nonce por request + HSTS condicional** (`request.is_secure`) en `app.py`; nonce agregado al script inline de Tailwind en `index.html`.
+13. **BAJO — SSRF anti-DNS-rebinding en Deluge**: IP pinning (`_pinned_targets` + `_get_validado`): resuelve y re-valida IPs en el momento, GET contra la IP validada con header `Host`, failover entre IPs aprobadas; HTTPS sin fijar (el certificado vincula al nombre).
+14. **BAJO — fixes varios en `app.js`**: carrera de la barra de progreso (timeout cancelado), `sendToDeluge` con `AbortController` de 150 s, eliminado el doble ordenamiento (`applyClientSorting`; el servidor ya ordena), `visibleTorrents` ahora solo contiene torrents que pasan el filtro, página vacía muestra mensaje informativo en vez de `errorBox`, filtros re-disparan búsqueda con debounce de 600 ms.
+15. **DOCS — `README.md`**: tabla de endpoints actualizada (parámetros reales: `sdr_only`, `min_bpp`, `sort`; eliminados `query`/`languages` de subtitles; la descripción de deluge acepta magnet o URL `.torrent`) y `AGENTS.md` actualizado (Redis opcional, estructura routes/services/utils, Docker, comando `docker compose up -d --build`).
+- **Verificación final**: los 5 agentes developer trabajaron en paralelo y todos los fixes quedaron verificados con la suite completa en verde (**134 passed**).
+
+### Revisiones paralelas completadas
+- Informe de confiabilidad de este `session_log.md`: **~95 % confiable**; detectó desajustes (conteo "16 cases" vs 14 reales, ruta de FlareSolverr desactualizada, pendientes ya resueltos sin registrar como `build_log.txt` en `.gitignore` y el merge a `main`, cobertura 93 % vs 91 %, commits no mencionados).
+
+### Qué quedó pendiente
+- Prueba visual en navegador (Tailwind, fuentes, pósters TMDB, botón Deluge, página de error) — la hace el usuario.
+- `.env.example` documentado con `PROWLARR_TIMEOUT` (tarea hecha en paralelo por otro agente dentro de esta sesión).
+- Commit de todos los cambios de la sesión (lo hará otro agente después).
+- De la revisión original siguen sin cerrarse: verificación dinámica en vivo de Prowlarr/Deluge/TMDB/OpenSubtitles, lectura detallada de los tests y auditoría de dependencias (`pip-audit`).
+- Pendientes históricos: M9 (CSP ahora implementado parcialmente), lock distribuido anti-*stampede* con Redis y deduplicación de torrents entre indexers.
+
+### Decisiones tomadas
+- Timeout de Prowlarr en **300 s** (no 180) por las búsquedas documentadas de hasta 236 s.
+- Rate limit de `/api/search` en **60/min** en vez de excluir páginas > 1 (excluir era un bypass trivial con Flask-Limiter).
+- **`response_filter` en vez de `unless`** para el caché de `None` (comportamiento real de Flask-Caching 2.3.1).
+- **Token de sesión** en lugar de quitar el meta tag, para no romper `app.js` que lee `meta[name="api-token"]`.
+- CSP con `'unsafe-eval'` defensivo para el JIT de Tailwind Play CDN.
+- Re-búsqueda con **debounce** para los filtros en vez de re-render local (el servidor también pagina y filtra).

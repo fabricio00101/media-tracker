@@ -35,16 +35,27 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       const apiToken =
         document.querySelector('meta[name="api-token"]')?.content || "";
 
+      // Id del timer de ocultamiento: si se muestra de nuevo el loader antes
+      // de que termine la animación, hay que cancelarlo o la barra nueva
+      // desaparecería igual (condición de carrera).
+      let hideGlobalLoaderTimer = null;
+
       const showGlobalLoader = () => {
+        if (hideGlobalLoaderTimer !== null) {
+          clearTimeout(hideGlobalLoaderTimer);
+          hideGlobalLoaderTimer = null;
+        }
         globalProgressBar.classList.remove("opacity-0");
         globalProgressBar.style.width = "70%";
       };
 
       const hideGlobalLoader = () => {
         globalProgressBar.style.width = "100%";
-        setTimeout(() => {
+        if (hideGlobalLoaderTimer !== null) clearTimeout(hideGlobalLoaderTimer);
+        hideGlobalLoaderTimer = setTimeout(() => {
           globalProgressBar.classList.add("opacity-0");
           globalProgressBar.style.width = "0";
+          hideGlobalLoaderTimer = null;
         }, 300);
       };
 
@@ -131,12 +142,24 @@ const filterBtns = document.querySelectorAll(".filter-btn");
       // Render inicial del historial
       renderSearchHistory();
 
-      // localStorage puede estar corrupto: nunca debe romper el arranque de la página
+      // localStorage puede estar corrupto: nunca debe romper el arranque de la
+      // página. Además del array, se valida la forma de cada favorito (null,
+      // strings u objetos sin "info") para que renderFavorites no reviente.
+      const esFavoritoValido = (f) =>
+          Boolean(f) && typeof f === "object" &&
+          typeof f.key === "string" && f.key &&
+          f.info && typeof f.info === "object";
+
       const loadFavorites = () => {
           try {
               const raw = localStorage.getItem('mt_favorites');
               const parsed = raw ? JSON.parse(raw) : [];
-              return Array.isArray(parsed) ? parsed : [];
+              if (!Array.isArray(parsed)) return [];
+              const validos = parsed.filter(esFavoritoValido);
+              if (validos.length !== parsed.length) {
+                  console.warn(`Se descartaron ${parsed.length - validos.length} favoritos corruptos.`);
+              }
+              return validos;
           } catch (err) {
               console.warn('Favoritos no legibles, se reinician:', err);
               return [];
@@ -197,18 +220,34 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           }
       };
 
+      // Render defensivo: si un favorito quedó mal formado (o falta el nodo
+      // del modal) se muestra la lista vacía en lugar de romper el modal.
       const renderFavorites = () => {
+          try {
+              renderFavoritesInterno();
+          } catch (err) {
+              console.warn('No se pudieron renderizar los favoritos:', err);
+              const container = document.getElementById('favoritesList');
+              if (container) container.innerHTML = '';
+              document.getElementById('emptyFavoritesMessage')?.classList.remove('hidden');
+          }
+      };
+
+      const renderFavoritesInterno = () => {
           const container = document.getElementById('favoritesList');
           const emptyMsg = document.getElementById('emptyFavoritesMessage');
+          if (!container || !emptyMsg) return;
           container.innerHTML = '';
-          
-          if (favorites.length === 0) {
+
+          const lista = favorites.filter(esFavoritoValido);
+
+          if (lista.length === 0) {
               emptyMsg.classList.remove('hidden');
               return;
           }
           emptyMsg.classList.add('hidden');
-          
-          favorites.sort((a,b) => new Date(b.added_at) - new Date(a.added_at)).forEach(fav => {
+
+          lista.sort((a,b) => new Date(b.added_at) - new Date(a.added_at)).forEach(fav => {
               const info = fav.info;
               const posterImg = info.poster_url
                 ? `<img src="${escapeHtml(info.poster_url)}" alt="${escapeHtml(info.title)}" class="w-24 h-36 object-cover rounded-md shadow-sm flex-shrink-0 border border-border-beige">`
@@ -501,6 +540,22 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         });
       }
 
+      // --- Filtros: al cambiar uno se repite la búsqueda ---
+      // Los filtros se leían solo al enviar el formulario, así que un cambio
+      // sobre resultados ya renderizados no tenía efecto visible. Con debounce
+      // se evita gastar la cuota de rate limit (30 req/min) si el usuario
+      // marca varios filtros seguidos.
+      let filterRefreshTimer = null;
+      const refrescarBusquedaFiltrada = () => {
+        // Sin búsqueda previa no hay nada que refrescar (no lanzar búsquedas solas)
+        if (!globalSearchParams) return;
+        clearTimeout(filterRefreshTimer);
+        filterRefreshTimer = setTimeout(() => {
+          filterRefreshTimer = null;
+          document.getElementById("searchForm")?.requestSubmit();
+        }, 600);
+      };
+
       filterBtns.forEach((btn) => {
         btn.addEventListener("click", () => {
           filterBtns.forEach((b) => {
@@ -510,7 +565,22 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           btn.classList.add("active");
           btn.setAttribute("aria-pressed", "true");
           qualityInput.value = btn.getAttribute("data-value");
+          refrescarBusquedaFiltrada();
         });
+      });
+
+      // Checkboxes y selects de filtros: re-búsqueda (con debounce) al cambiar
+      [
+        "langLatino",
+        "langCastellano",
+        "langSub",
+        "langOtro",
+        "filterHDR",
+        "filterHEVC",
+        "filterSDR",
+        "filterMinBpp",
+      ].forEach((id) => {
+        document.getElementById(id)?.addEventListener("change", refrescarBusquedaFiltrada);
       });
 
       // --- Procesamiento de grupos (reutilizado por la paginación server-side) ---
@@ -691,6 +761,9 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
           let torrentsHTML = "";
           let visibleCount = 0;
+          // Torrents que superan el filtro de idioma: es la lista "visible"
+          // real (group.torrents trae todos, filtrados o no).
+          const torrentsVisibles = [];
           group.torrents.forEach((t) => {
             const support = t.spanish_support;
             let show = false;
@@ -706,6 +779,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
             if (!show) return;
             visibleCount++;
+            torrentsVisibles.push(t);
             const badge = getQualityBadge(t.title);
             // escapeHtml cubre también el atributo: ningún metadato externo entra crudo
             const safeMagnet = escapeHtml(t.magnet || "");
@@ -757,7 +831,7 @@ const filterBtns = document.querySelectorAll(".filter-btn");
             validGroups.push({
               info: info,
               visibleTorrentsHTML: torrentsHTML,
-              visibleTorrents: group.torrents || [],
+              visibleTorrents: torrentsVisibles,
               visibleCount: visibleCount,
               groupKey: `fav_${info.title.replace(/\s+/g, "_")}_${info.year}`,
               episodes: buildEpisodeList(group.torrents),
@@ -766,6 +840,20 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         });
 
         return validGroups;
+      };
+
+      // Estado vacío de resultados: NO es un error de red ni del servidor, así
+      // que nunca se muestra en errorBox (evita mezclar "sin resultados" con
+      // fallos reales).
+      const mostrarResultadosVacios = (mensaje) => {
+          const resultsSection = document.getElementById("resultsSection");
+          const resultsCount = document.getElementById("resultsCount");
+          const resultsList = document.getElementById("resultsList");
+          if (!resultsSection || !resultsCount || !resultsList) return;
+          resultsCount.textContent = "SIN RESULTADOS";
+          resultsList.innerHTML = `<div class="bg-warm-white border border-border-beige rounded-lg p-6 text-center text-on-surface-variant font-body-md text-body-md">${escapeHtml(mensaje)}</div>`;
+          resultsSection.classList.remove("hidden");
+          document.getElementById('loadMoreContainer')?.classList.add('hidden');
       };
 
       document
@@ -821,26 +909,62 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           globalTotalGroups = 0;
           globalSearchParams = null;
 
-          // Función con reintentos para lidiar con el Timeout de Cloudflare (504 o 502) en Jackett
-          const fetchWithRetry = async (url, retries = 2) => {
+          // Función con reintentos para lidiar con el Timeout de Cloudflare (504 o 502) en Jackett.
+          // SOLO se reintentan errores transitorios: fallos de red (TypeError),
+          // 502 y 504. Los 4xx (400/401/403/404/429) y el resto de 5xx se
+          // lanzan de inmediato: reintentarlos solo repite el mismo fallo y
+          // gasta la cuota de rate limit (30 req/min), pudiendo provocar un 429.
+          const fetchWithRetry = async (url, retries = 1) => {
               for (let i = 0; i <= retries; i++) {
+                  btnText.textContent = i > 0 ? `Reintentando (${i}/${retries})...` : "Buscando...";
+
+                  let response;
                   try {
-                      btnText.textContent = i > 0 ? `Reintentando (${i}/${retries})...` : "Buscando...";
-                      const response = await fetch(url, { signal: searchSignal });
-                      const data = await response.json();
-                      if (!response.ok) {
-                          if ((response.status === 504 || response.status === 502) && i < retries) {
-                              console.warn(`Intento ${i+1} fallido por Timeout. Reintentando...`);
-                              continue;
-                          }
-                          throw new Error(data.error || "Ocurrió un error en el servidor backend.");
-                      }
-                      return data;
+                      response = await fetch(url, { signal: searchSignal });
                   } catch (error) {
+                      // Cancelación del usuario o de una búsqueda más reciente.
                       if (error.name === "AbortError") throw error;
-                      if (i === retries) throw error;
+                      // fetch lanza TypeError ante errores de red: es lo único
+                      // que se reintenta si quedan intentos.
+                      if (error instanceof TypeError && i < retries) {
+                          console.warn(`Intento ${i + 1} falló por error de red. Reintentando...`, error);
+                          await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+                          continue;
+                      }
+                      throw error;
                   }
+
+                  if (response.ok) {
+                      try {
+                          return await response.json();
+                      } catch (_) {
+                          throw new Error("El servidor devolvió una respuesta inválida.");
+                      }
+                  }
+
+                  // 502/504: error transitorio del proxy (Cloudflare/Jackett).
+                  if ((response.status === 502 || response.status === 504) && i < retries) {
+                      console.warn(`Intento ${i + 1} falló con HTTP ${response.status}. Reintentando...`);
+                      await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+                      continue;
+                  }
+
+                  // Cualquier otro caso: fallar ya, sin reintentar.
+                  let payload = {};
+                  try {
+                      payload = await response.json();
+                  } catch (_) {
+                      // Cuerpo sin JSON: se usa el mensaje genérico.
+                  }
+                  const mensaje =
+                      payload.error || `Error HTTP ${response.status} del servidor backend.`;
+                  throw new Error(
+                      response.status === 429
+                          ? `${mensaje} Esperá un momento antes de volver a buscar.`
+                          : mensaje,
+                  );
               }
+              throw new Error("No se pudo completar la búsqueda.");
           };
 
           try {
@@ -874,23 +998,30 @@ const filterBtns = document.querySelectorAll(".filter-btn");
 
             const data = await fetchWithRetry(`/api/search?${params.toString()}`);
 
+            // Se guarda ya con la página vacía: así un cambio de filtro posterior
+            // sigue repitiendo la búsqueda en lugar de quedar sin efecto.
+            globalSearchParams = params;
+
             // Guardar datos crudos para la exportación
             globalRawResults = data.results;
             globalLastQuery = query;
             addSearchHistory(query);
 
+            // 200 con página vacía: es "sin resultados", no un error del servidor
             if (data.results.length === 0) {
-              throw new Error(
-                "No se encontraron resultados que superen los filtros de tamaño o calidad para esta búsqueda.",
+              mostrarResultadosVacios(
+                "No se encontraron resultados para esta búsqueda. Probá con otros términos o relajá los filtros de tamaño y calidad.",
               );
+              return;
             }
 
             const validGroups = buildValidGroups(data.results);
 
             if (validGroups.length === 0) {
-              throw new Error(
+              mostrarResultadosVacios(
                 "No se encontraron resultados tras aplicar los filtros locales de idioma (Intenta habilitar Otros, Latino, etc).",
               );
+              return;
             }
 
             // Estado de paginación server-side
@@ -900,13 +1031,14 @@ const filterBtns = document.querySelectorAll(".filter-btn");
               typeof data.total_groups === "number"
                 ? data.total_groups
                 : validGroups.length;
-            globalSearchParams = params;
 
             globalCurrentResults = validGroups;
             globalRenderedCount = 0;
             resultsList.innerHTML = "";
 
-            applyClientSorting();
+            // El ordenamiento lo aplica el servidor (parámetro "sort"): no se
+            // reordena acá para no duplicar el criterio ni desordenar la
+            // paginación de "Cargar más".
 
             resultsCount.textContent = `${globalTotalGroups} OBRA${globalTotalGroups !== 1 ? "S" : ""} ENCONTRADA${globalTotalGroups !== 1 ? "S" : ""}`;
             resultsSection.classList.remove("hidden");
@@ -929,37 +1061,6 @@ const filterBtns = document.querySelectorAll(".filter-btn");
           }
         });
         
-        // FUNCIÓN DE ORDENAMIENTO EN CLIENTE
-        function applyClientSorting() {
-            const selector = document.getElementById("sortSelector");
-            const sortMode = selector ? selector.value : "seeders_desc";
-
-            const maxScore = (group) =>
-                Math.max(
-                    ...(group.visibleTorrents || []).map((t) =>
-                        t.tech && typeof t.tech.score === "number" ? t.tech.score : 0,
-                    ),
-                    0,
-                );
-
-            globalCurrentResults.sort((a, b) => {
-                if (sortMode === "year_desc") {
-                    return (parseInt(b.info.year) || 0) - (parseInt(a.info.year) || 0);
-                } else if (sortMode === "year_asc") {
-                    return (parseInt(a.info.year) || 9999) - (parseInt(b.info.year) || 9999);
-                } else if (sortMode === "title_asc") {
-                    return (a.info.title || "").localeCompare(b.info.title || "");
-                } else if (sortMode === "bpp_desc") {
-                    return maxScore(b) - maxScore(a);
-                } else {
-                    // seeders_desc por defecto
-                    const maxA = Math.max(...(a.visibleTorrents || []).map(t => t.seeders || 0), 0);
-                    const maxB = Math.max(...(b.visibleTorrents || []).map(t => t.seeders || 0), 0);
-                    return maxB - maxA;
-                }
-            });
-        }
-
         // Al cambiar el criterio se repite la búsqueda: la paginación es del
         // servidor, así que ordenar solo lo ya cargado daría resultados engañosos.
         document.getElementById("sortSelector")?.addEventListener("change", () => {
@@ -1120,26 +1221,41 @@ const filterBtns = document.querySelectorAll(".filter-btn");
                 btnElement.disabled = true;
                 btnElement.classList.add('opacity-75', 'cursor-not-allowed');
 
-                const res = await fetch('/api/deluge/add', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(apiToken ? { 'X-Api-Token': apiToken } : {}),
-                    },
-                    body: JSON.stringify({ magnet: magnetUrl })
-                });
+                // Timeout generoso: Deluge remoto puede tardar (añadir + verificar
+                // estado), pero sin escape el botón queda clavado en "Enviando...".
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 150000);
 
-                const data = await res.json();
+                try {
+                    const res = await fetch('/api/deluge/add', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(apiToken ? { 'X-Api-Token': apiToken } : {}),
+                        },
+                        body: JSON.stringify({ magnet: magnetUrl }),
+                        signal: controller.signal,
+                    });
 
-                if (!res.ok) {
-                    throw new Error(data.error || 'Ocurrió un error de red o de clave incorrecta.');
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Ocurrió un error de red o de clave incorrecta.');
+                    }
+
+                    // Éxito: feedback verde breve antes de que el finally restaure.
+                    btnElement.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> <span class="btn-text">Añadido!</span>';
+                    btnElement.className = 'bg-tertiary-container text-on-tertiary-container px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
+
+                    await new Promise((resolve) => setTimeout(resolve, 1200));
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        throw new Error('El servidor tardó demasiado en responder (timeout de 150s). El torrent puede haberse añadido igual: revisá Deluge.');
+                    }
+                    throw error;
+                } finally {
+                    clearTimeout(timeoutId);
                 }
-
-                // Éxito: feedback verde breve antes de que el finally restaure.
-                btnElement.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">check_circle</span> <span class="btn-text">Añadido!</span>';
-                btnElement.className = 'bg-tertiary-container text-on-tertiary-container px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2 transition-all flex-grow md:flex-grow-0 justify-center';
-
-                await new Promise((resolve) => setTimeout(resolve, 1200));
 
             } catch (error) {
                 alert("Error interactuando con Deluge:\n" + error.message);
@@ -1160,11 +1276,49 @@ const filterBtns = document.querySelectorAll(".filter-btn");
         // --- Delegación de eventos ---
         // Toda acción que depende de datos externos se resuelve por atributos data-*,
         // nunca interpolando código dentro de un atributo onclick.
+
+        // Copia al portapapeles con fallbacks: navigator.clipboard no existe en
+        // contextos no seguros (http://<IP-LAN>), y sin catch habría una
+        // promesa rechazada sin manejar.
+        const copiarAlPortapapeles = async (texto) => {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                try {
+                    await navigator.clipboard.writeText(texto);
+                    return true;
+                } catch (err) {
+                    console.warn('Clipboard API falló, se intenta fallback:', err);
+                }
+            }
+            // Fallback: textarea temporal + execCommand (sigue disponible en http)
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = texto;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.top = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+            } catch (err) {
+                console.warn('Fallback de copia falló:', err);
+                return false;
+            }
+        };
+
         document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('[data-magnet-copy]');
     if (copyBtn) {
         const magnet = copyBtn.getAttribute('data-magnet-copy');
-        navigator.clipboard.writeText(magnet).then(() => alert('¡Enlace Magnet copiado!'));
+        copiarAlPortapapeles(magnet).then((ok) => {
+            if (ok) {
+                alert('¡Enlace Magnet copiado!');
+            } else {
+                // Último recurso: el usuario puede copiarlo a mano.
+                window.prompt('No se pudo copiar automáticamente. Copiá el Magnet:', magnet);
+            }
+        });
         return;
     }
     

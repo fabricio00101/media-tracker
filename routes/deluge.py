@@ -115,6 +115,78 @@ def _remote_url_rejection_reason(url):
     return None
 
 
+def _pinned_targets(url):
+    """Devuelve (lista_destinos, headers) resolviendo la URL en el momento.
+
+    La validación SSRF resuelve el host con getaddrinfo y luego `requests`
+    vuelve a resolver al conectar: entre ambas la respuesta DNS puede cambiar
+    (TOCTOU / DNS rebinding). Para cerrar esa ventana se reconecta usando las
+    IP recién resueltas y validadas, conservando el nombre original en el
+    header Host.
+
+    - Solo se fija en HTTP: en HTTPS el certificado TLS ya vincula el nombre
+      del host, y fijar la IP rompería la verificación.
+    - Si el host no se puede volver a resolver (o la URL tiene credenciales
+      embebidas), se devuelve la URL original: la validación previa ya
+      rechazó los destinos bloqueados.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "http" or not parsed.hostname or parsed.username:
+            return [url], {}
+        infos = socket.getaddrinfo(parsed.hostname, None)
+        puerto = parsed.port
+    except (socket.gaierror, ValueError, UnicodeError):
+        # Sin resolución no hay IP que fijar: se usa la URL original.
+        return [url], {}
+
+    if not infos:
+        return [url], {}
+
+    destinos = []
+    for info in infos:
+        resolved_ip = info[4][0]
+        if _ip_is_blocked(resolved_ip):
+            # El DNS cambió a un destino bloqueado entre validar y conectar.
+            raise TorrentDownloadError(
+                "URL de descarga rechazada: el destino no está permitido "
+                f"(el host {parsed.hostname} resuelve a la dirección "
+                f"{resolved_ip}, bloqueada por seguridad).",
+                400,
+            )
+        netloc = f"[{resolved_ip}]" if ":" in resolved_ip else resolved_ip
+        if puerto is not None:
+            netloc = f"{netloc}:{puerto}"
+        destinos.append(parsed._replace(netloc=netloc).geturl())
+
+    # Host original (nombre + puerto) para que el servidor siga atendiendo
+    # el virtual host correctamente.
+    host_header = parsed.netloc.rsplit("@", 1)[-1]
+    return destinos, {"Host": host_header}
+
+
+def _get_validado(destinos, headers):
+    """GET probando cada IP validada en orden; propaga el último fallo.
+
+    Permite el mismo failover que tendría `requests` al resolver un hostname
+    (p. ej. ::1 sin servicio y 127.0.0.1 activo), pero sin salirse de las
+    IP que pasaron la validación SSRF.
+    """
+    ultimo_error = None
+    for destino in destinos:
+        try:
+            return requests.get(
+                destino,
+                timeout=120,
+                allow_redirects=False,
+                stream=True,
+                headers=headers,
+            )
+        except requests.exceptions.ConnectionError as e:
+            ultimo_error = e
+    raise ultimo_error
+
+
 def _looks_like_torrent(content):
     """Validación mínima de bencode: diccionario con la clave 'info'."""
     return content[:1] == b"d" and b"4:info" in content[:4096]
@@ -170,9 +242,10 @@ def _download_torrent(url):
     current = url
     for _ in range(MAX_REDIRECTS + 1):
         # allow_redirects=False SIEMPRE: cada Location se valida por separado.
-        response = requests.get(
-            current, timeout=120, allow_redirects=False, stream=True
-        )
+        # Se conecta a las IP resueltas y validadas en este momento (anti
+        # TOCTOU/DNS rebinding), con el hostname original en el header Host.
+        destinos, headers = _pinned_targets(current)
+        response = _get_validado(destinos, headers)
 
         if response.status_code in REDIRECT_STATUSES:
             raw_location = response.headers.get("Location", "")

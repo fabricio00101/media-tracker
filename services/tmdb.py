@@ -141,7 +141,19 @@ def _fetch_runtime(media_type, tmdb_id):
     return data.get("runtime")
 
 
-@cache.memoize(timeout=config.CACHE_24H)
+def _cache_only_if_result(rv):
+    """Filtro de caché para `get_tmdb_info`: no guardar `None`.
+
+    `None` significa TMDB caído, sin API_KEY o sin candidatos: cachearlo
+    ocuparía la clave 24 h (y con Redis sobreviviría a reinicios). Ojo: en
+    Flask-Caching 2.x `unless` se evalúa ANTES de llamar a la función (recibe
+    `f` y sus argumentos), por lo que no puede filtrar por resultado; el hook
+    que recibe el valor devuelto es `response_filter`.
+    """
+    return rv is not None
+
+
+@cache.memoize(timeout=config.CACHE_24H, response_filter=_cache_only_if_result)
 def get_tmdb_info(query_title, year=None, is_tv=False):
     if not config.TMDB_API_KEY:
         return None

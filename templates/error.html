@@ -58,7 +58,11 @@
           <a href="/" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
             <i class="fas fa-home"></i> Volver al Inicio
           </a>
-          <button onclick="window.location.reload()" class="bg-[#252a35] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-8 py-3 rounded-xl font-bold transition-colors">
+          <button
+            type="button"
+            data-action="reload"
+            class="bg-[#252a35] border border-white/10 hover:border-violet-500/50 text-gray-300 hover:text-white px-8 py-3 rounded-xl font-bold transition-colors"
+          >
             <i class="fas fa-redo mr-2"></i> Recargar Página
           </button>
         </div>
@@ -74,5 +78,15 @@
         © 2026 Buscador de Alta Fidelidad. Diseñado para entusiastas del cine.
       </p>
     </footer>
+
+    <script nonce="{{ csp_nonce }}">
+      // Delegación de eventos: sin handlers inline (convención del proyecto).
+      document.addEventListener("click", function (evento) {
+        const boton = evento.target.closest('[data-action="reload"]');
+        if (boton) {
+          window.location.reload();
+        }
+      });
+    </script>
   </body>
 </html>

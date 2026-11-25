@@ -8,8 +8,9 @@
     <meta property="og:description" content="Descarga películas, series y documentales en la mejor calidad sin esperas." />
     <meta property="og:image" content="/assets/screenshot.png" />
     <meta property="og:type" content="website" />
-    <!-- Token opcional del servidor: solo se rellena si API_SECRET_TOKEN está
-         configurado. El JS lo lee desde esta meta (nunca se hardcodea). -->
+    <!-- Token propio de la sesión: lo genera el servidor al servir esta página
+         y solo autoriza a esta sesión (el secreto del servidor nunca viaja
+         en el HTML). El JS lo lee desde esta meta. -->
     <meta name="api-token" content="{{ api_token or '' }}" />
     <title>Buscador de Alta Fidelidad | Media Tracker</title>
 
@@ -25,7 +26,7 @@
     />
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script id="tailwind-config">
+    <script id="tailwind-config" nonce="{{ csp_nonce }}">
       tailwind.config = {
         darkMode: "class",
         theme: {

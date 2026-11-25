@@ -30,7 +30,11 @@ def fetch_prowlarr(query, category):
         params["limit"] = config.PROWLARR_SEARCH_LIMIT
 
     try:
-        response = requests.get(endpoint, params=params, headers=headers, timeout=30)
+        # Timeout configurable: las búsquedas con muchos indexers tardan
+        # 187-236 s (ver session_log.md); 30 s fallaba en la UI.
+        response = requests.get(
+            endpoint, params=params, headers=headers, timeout=config.PROWLARR_TIMEOUT
+        )
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.ConnectionError:

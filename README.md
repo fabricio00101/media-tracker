@@ -129,10 +129,10 @@ El lanzador usa rutas relativas, inicia FlareSolverr en una ventana propia con `
 
 | Método | Endpoint | Parámetros Principales | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/search` | `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `lang_filter`, `page`, `per_page` | Metabúsqueda, agrupación de torrents, metadatos TMDB y paginación. |
-| `GET` | `/api/subtitles/search` | `query`, `tmdb_id`, `season`, `episode`, `languages` | Búsqueda de subtítulos en OpenSubtitles v3 para películas y series. |
+| `GET` | `/api/search` | `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `sdr_only`, `lang_filter`, `min_bpp`, `sort`, `page`, `per_page` | Metabúsqueda, agrupación de torrents, metadatos TMDB y paginación. |
+| `GET` | `/api/subtitles/search` | `tmdb_id`, `media_type`, `season`, `episode` | Búsqueda de subtítulos en OpenSubtitles v3 para películas y series. |
 | `GET` | `/api/subtitles/download` | `file_id` | Obtiene el enlace de descarga oficial para el archivo de subtítulo. |
-| `POST` | `/api/deluge/add` | Body JSON: `{"magnet": "magnet:?..."}` | Envía un magnet link directamente a la cola de Deluge Web UI. |
+| `POST` | `/api/deluge/add` | Body JSON: `{"magnet": "magnet:?..."}` (también acepta una URL HTTP(S) de un `.torrent`) | Envía un magnet o un `.torrent` directamente a la cola de Deluge Web UI. |
 
 ### Formato de Errores
 Todos los endpoints devuelven respuestas de error consistentes:
