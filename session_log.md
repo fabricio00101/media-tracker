@@ -933,7 +933,7 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Se eliminó el dato sin consumidores `visibleTorrents`/`torrentsVisibles` (verificado por grep que nadie lo leía).
 - **Refresh pendiente**: cambiar un filtro durante una búsqueda en curso ya no se pierde; el re-disparo se ejecuta al terminar la búsqueda en curso, una sola vez.
 - El re-disparo de filtros con debounce de 600 ms se extendió al slider de tamaño mínimo (`#visible_min_size`) y a los radios de categoría.
-- Nota: la app se recompila (PyInstaller) y todos estos cambios quedan en el commit final de la sesión.
+- La app se recompiló (PyInstaller) y todos estos cambios quedaron en el commit final: `ca7d19d` "fix: segunda ronda de correcciones menores en app.js y session_log" (2 archivos, +85/−25), junto con la sección de contraste de etiquetas técnicas. Verificado en verde antes del commit: 134 passed + checks de node. Pusheado a `origin/main` junto con `9d09c03` (`0609b56..ca7d19d`).
 
 ## Sesión 2026-11-25 — Contraste de etiquetas técnicas
 
@@ -942,7 +942,7 @@ Al hacer clic en "Buscar Subtítulos" la búsqueda "mandaba a cualquier lado". E
 - Esas etiquetas ahora usan texto claro `tech-text` y un fondo/borde de la paleta técnica, en lugar de colores de texto diseñados para superficies claras.
 
 ### Qué quedó pendiente
-- No se ejecutaron tests ni se hizo una comprobación visual en el navegador.
+- No se hizo una comprobación visual en el navegador. (Los tests sí se corrieron después, sobre este estado: 134 passed + checks de node, verificado antes del commit `ca7d19d`.)
 
 ### Decisiones tomadas
 - Se conservaron los colores diferenciados de calidad (1080p, 4K, excelente, etc.) que ya se distinguen en la captura; se cambiaron solo las etiquetas técnicas de bajo contraste.
