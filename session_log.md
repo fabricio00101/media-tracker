@@ -113,3 +113,30 @@ python -m pytest -q  # 147 passed
 - **Encoding**: `session_log_report.md` se convirtió a UTF-8 sin BOM (estándar del repo); si el contenido hubiera estado ilegible se habría documentado en vez de regenerarlo.
 - **Sin dependencias nuevas ni cambios de código**: la sesión se acotó a documentación, encoding y limpieza de tracking; `requirements.txt` no se modificó.
 - **Commit único** con mensaje `chore:` siguiendo la convención del repo; sin push (pendiente de decisión del usuario).
+
+---
+
+# Session Log - Push a main, metadatos del repo y limpieza de ramas
+
+**Date**: Fri Nov 27 2026
+**Agent**: Subagent task for push, repo metadata and branch cleanup
+
+## Qué se completó
+
+- **AGENTS.md verificado, sin cambios**: ya decía Flask 3.1.3 (corregido en el commit `1c46166`); Waitress 3.0.2 y el resto coinciden con `requirements.txt`. No se modificó ningún archivo.
+- **Push a `origin/main`**: se subió el commit local `1c46166` ("chore: alinear docs, normalizar encoding y limpiar artefactos de debug"). Sin commits nuevos en esta sesión.
+- **Rama `feature/stitch-design-system` borrada**: verificada como mergeada en main (`git branch --merged main`) y eliminada localmente con `git branch -d` (punto de partida `eca1b7e`). La remota ya no existía en el servidor (`remote ref does not exist`); se limpió la referencia obsoleta con `git fetch --prune`.
+- **Metadatos de GitHub actualizados** (sin licencia, por decisión del usuario):
+  - Descripción: "Media discovery tracker: search movies/series/documentaries via Prowlarr, enrich with TMDB, find subtitles, and send torrents to Deluge - built with Flask".
+  - Topics: `flask`, `python`, `deluge`, `prowlarr`, `subtitles`, `tmdb`, `docker`, `media-management`, `torrents`, `redis`.
+- **Verificación final**: `python -m pytest` → 147 passed (1 warning conocido de Flask-Limiter in-memory); `git status -sb` → `main...origin/main` sin ahead/behind y árbol limpio; `git branch -a` → solo `main` y `origin/main`.
+
+## Qué quedó pendiente
+
+- **Paginación de Prowlarr**: falta tomar la decisión registrada en `plan.md`.
+
+## Decisiones
+
+- **Sin licencia**: se respetó la decisión del usuario de no agregar licencia por ahora; no se tocó el archivo.
+- **Sin commits nuevos**: AGENTS.md ya estaba correcto, así que el push solo incluyó `1c46166`.
+- **Sin dependencias ni archivos borrados**: solo se eliminó la rama fusionada (autorizado por la tarea) y se actualizaron metadatos vía `gh` autenticado.
