@@ -53,3 +53,8 @@ flaresolverr/
 .vscode/
 .idea/
 *.swp
+
+# Artefactos de debug / scripts puntuales (no se trackean)
+debug_dedupe.py
+fix_dedupe.py
+test_output.txt.bak

@@ -84,3 +84,32 @@ python -m pytest tests/test_search.py tests/test_search_cache.py -q
 # Full test suite
 python -m pytest -q  # 147 passed
 ```
+
+---
+
+# Session Log - Revisión de estado, normalización de docs y limpieza
+
+**Date**: Fri Nov 27 2026
+**Agent**: Subagent task for media-tracker status review fixes
+
+## Qué se completó
+
+- **Revisión de estado local + GitHub**: confirmado que el repo está en `main` sincronizada con `origin/main`, árbol limpio antes de empezar, y que la suite de tests pasa (147/147).
+- **AGENTS.md corregido**: la sección "Contexto del proyecto" decía Flask 3.0.0; verificado contra `requirements.txt` real (Flask==3.1.3, waitress==3.0.2) y actualizado a Flask 3.1.3. El resto del archivo no se tocó.
+- **`session_log_report.md` normalizado a UTF-8**: se detectó que el archivo era UTF-16 LE con BOM (120 bytes), por eso no se leía como texto. Se decodificó y se reescribió como UTF-8 sin BOM, sin pérdida de contenido. El contenido resultante es solo el título `# Informe de Calidad y Cobertura de Tests - Media Tracker` (archivo stub, no corrupto; no se inventó contenido ni se borró el archivo).
+- **Artefactos de debug fuera del seguimiento de git**: `debug_dedupe.py`, `fix_dedupe.py` y `test_output.txt.bak` se quitaron del índice con `git rm --cached` (los archivos locales se conservan) y se agregaron a `.gitignore` para que no se vuelvan a trackear.
+- **Verificación**: `python -m pytest` en verde antes y después de los cambios (147 passed). `git status`/`git diff` revisados antes del commit.
+- **Commit**: un solo commit con todos los cambios (sin push, sin tocar ramas remotas).
+
+## Qué quedó pendiente
+
+- **Paginación de Prowlarr**: falta tomar la decisión registrada en `plan.md`.
+- **Metadatos del repo en GitHub**: configurar licencia, descripción y topics.
+- **Rama `feature/stitch-design-system`**: borrarla (quedó intacta en esta sesión).
+
+## Decisiones
+
+- **No borrar archivos locales**: para los artefactos de debug se usó `git rm --cached` (solo se des-indexan) en lugar de borrar, respetando la restricción de no eliminar archivos.
+- **Encoding**: `session_log_report.md` se convirtió a UTF-8 sin BOM (estándar del repo); si el contenido hubiera estado ilegible se habría documentado en vez de regenerarlo.
+- **Sin dependencias nuevas ni cambios de código**: la sesión se acotó a documentación, encoding y limpieza de tracking; `requirements.txt` no se modificó.
+- **Commit único** con mensaje `chore:` siguiendo la convención del repo; sin push (pendiente de decisión del usuario).
