@@ -1,17 +1,18 @@
 # Media Tracker - Buscador de Alta Fidelidad
 
-Una aplicación web ultrarrápida y estéticamente premium diseñada para entusiastas del cine y las series. Funciona como un metabuscador que se conecta a tu instancia local de [Prowlarr](https://github.com/Prowlarr/Prowlarr) para rastrear y filtrar enlaces Torrent (Películas, Series y Documentales) ofreciendo los resultados de manera unificada, inteligente y visualmente atractiva con integración a TMDB.
+Una aplicación web para buscar películas, series y documentales mediante una instancia de [Prowlarr](https://github.com/Prowlarr/Prowlarr). Agrupa releases, obtiene metadatos de TMDB y permite enviar magnets o archivos `.torrent` a Deluge.
 
 ## ✨ Características Principales
 
 - **Filtros Avanzados**: Búsqueda exclusiva por categorías (Películas, Series, Documentales o Todos) y filtro visual rápido por calidad gráfica (1080p, 4K UHD, REMUX, WEBRip).
 - **Agrupación Inteligente**: En lugar de mostrar cientos de torrents desordenados, la aplicación (gracias a `parse-torrent-title`) agrupa todas las variantes de una misma obra bajo una única tarjeta expandible.
 - **Integración con TMDB**: Automáticamente obtiene el póster oficial, año de lanzamiento y sinopsis en español de la base de datos de TMDB para presentar las obras.
-- **Temporadas Completas Destacadas**: Detección automática de "Pack de Series" o temporandas enteras (`is_full_season`). Estos resultados se fijan a la parte superior de cada grupo con una insignia dorada.
+- **Temporadas Completas Destacadas**: Detección de packs de temporada (`is_full_season`) y prioridad dentro de cada grupo.
 - **Copiar Magnet con un Clic**: Interfaz sin fricciones. Un solo botón para abrir el Torrent o un botón dedicado para copiar el Magnet al portapapeles y pasarlo por WhatsApp/Telegram.
-- **Soporte FlareSolverr Multiplicado**: Totalmente compatible con indexadores pesados (como 1337x) que requieren bypass de Cloudflare (los timeouts de conexión están ajustados tolerar las demoras sin problemas).
+- **Soporte para FlareSolverr**: Prowlarr puede usar FlareSolverr como proxy para indexadores que lo requieran. El timeout de búsqueda de Prowlarr es configurable y su valor predeterminado es 300 segundos.
 - **Indicadores de Idioma**: Detección inteligente si el archivo contiene audio "Latino", "Castellano" o "Subtitulado".
 - **Estimación Técnica por Release**: A partir del nombre del torrent y de la duración real de TMDB se estiman fuente (REMUX/BluRay/WEB-DL), códec, bits de color, HDR, formato de audio, bitrate y **bits por píxel (bpp)**, con un veredicto de calidad (Excelente / Muy buena / Correcta / Floja). Permite filtrar por calidad mínima, excluir HDR y ordenar por mejor calidad sin descargar nada.
+- **Colección e historial locales**: Los favoritos y las búsquedas recientes se guardan en el `localStorage` del navegador.
 
 ## 🚀 Requisitos
 
@@ -26,8 +27,8 @@ Necesitarás tener instalado y corriendo en tu equipo local:
 1. **Clonar este repositorio:**
 
    ```bash
-   git clone https://github.com/tu-usuario/rastreador-de-torrents.git
-   cd rastreador-de-torrents
+   git clone https://github.com/fabricio00101/media-tracker.git
+   cd media-tracker
    ```
 
 2. **Crear y activar un entorno virtual (opcional pero recomendado):**
@@ -44,54 +45,35 @@ Necesitarás tener instalado y corriendo en tu equipo local:
    pip install -r requirements.txt
    ```
 
-4. **Configurar Variables de Entorno:**
-   Renombra el archivo `.env.example` a `.env` (si existe, o simplemente crea `.env`) en la carpeta raíz, e ingresa tus credenciales:
+4. **Configurar las variables de entorno:**
+   Copia `.env.example` como `.env` en la raíz y completa las credenciales de los servicios que quieras usar. En PowerShell:
 
-   ```env
-   # URL de Prowlarr. Cambiar solo si no corre en local.
-   PROWLARR_URL=http://localhost:9696
-
-   # Tu llave de API de Prowlarr (Puedes verla en la web de Prowlarr en Settings > General).
-   PROWLARR_API_KEY=tu_api_key_de_prowlarr
-
-   # Límite de resultados a solicitar a Prowlarr por búsqueda (default: 500)
-   PROWLARR_SEARCH_LIMIT=500
-
-   # [Opcional] API Key de The Movie Database para obtener Posteres. Obtener en: https://www.themoviedb.org/settings/api
-   TMDB_API_KEY=tu_api_key_de_tmdb_aca
-
-   # [Opcional] OpenSubtitles v3 API para descarga de subtítulos
-   OPENSUBTITLES_API_KEY=tu_api_key_opensubtitles
-   OPENSUBTITLES_USER=tu_usuario
-   OPENSUBTITLES_PASSWORD=tu_password
-
-   # [Opcional] Cliente Deluge Web UI para envío directo de magnets
-   DELUGE_URL=http://localhost:8112
-   DELUGE_PASSWORD=deluge
-
-   # [Opcional] Redis para caché y rate-limiting persistentes.
-   # Si se deja vacío o Redis no responde, se usa almacenamiento en memoria.
-   REDIS_URL=
+   ```powershell
+   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
    ```
 
-5. **Ajustes Adicionales de Prowlarr (Recomendado):**
+   `PROWLARR_API_KEY` es necesaria para buscar. TMDB, OpenSubtitles, Deluge y Redis son opcionales; las variables disponibles y sus valores predeterminados están documentados en `.env.example`. Antes de exponer la aplicación en una red, configura `SECRET_KEY` y `API_SECRET_TOKEN`.
+
+5. **Ajustes adicionales de Prowlarr (recomendado):**
    - Asegúrate de asignar FlareSolverr como proxy en Prowlarr desde _Settings > Indexers_, en caso de indexadores caidos o bloqueados por CF.
 
-6. **Ejecutar el Servidor Web:**
+6. **Ejecutar el servidor web:**
 
    ```bash
    python app.py
    ```
 
-7. **A disfrutar:** ¡Abre tu navegador web y visita [http://localhost:5000](http://localhost:5000)!
+   Por defecto escucha en `127.0.0.1:5000`. `HOST` y `PORT` permiten cambiar la dirección y el puerto; con `FLASK_ENV=production` usa Waitress.
+
+7. **Abrir la aplicación:** visita [http://localhost:5000](http://localhost:5000).
 
 ## 🐳 Despliegue con Docker (opcional)
 
 El proyecto incluye un `Dockerfile` y un `docker-compose.yml` listos para producción. El compose levanta la app con **Waitress multi-hilo** y un **Redis** para caché y rate-limiting persistentes.
 
-```bash
-# 1. Crear el .env con tus claves (Prowlarr, TMDB, etc.)
-cp .env.example .env
+```powershell
+# 1. Copiar .env.example solo si todavía no existe .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 # 2. Levantar app + Redis
 docker compose up -d --build
@@ -129,13 +111,17 @@ El lanzador usa rutas relativas, inicia FlareSolverr en una ventana propia con `
 
 | Método | Endpoint | Parámetros Principales | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/search` | `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `sdr_only`, `lang_filter`, `min_bpp`, `sort`, `page`, `per_page` | Metabúsqueda, agrupación de torrents, metadatos TMDB y paginación. |
+| `GET` | `/api/search` | `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `sdr_only`, `lang_filter`, `min_bpp`, `sort`, `page`, `per_page` | Metabúsqueda, agrupación de torrents, metadatos TMDB y paginación de grupos. |
 | `GET` | `/api/subtitles/search` | `tmdb_id`, `media_type`, `season`, `episode` | Búsqueda de subtítulos en OpenSubtitles v3 para películas y series. |
 | `GET` | `/api/subtitles/download` | `file_id` | Obtiene el enlace de descarga oficial para el archivo de subtítulo. |
 | `POST` | `/api/deluge/add` | Body JSON: `{"magnet": "magnet:?..."}` (también acepta una URL HTTP(S) de un `.torrent`) | Envía un magnet o un `.torrent` directamente a la cola de Deluge Web UI. |
 
-### Formato de Errores
-Todos los endpoints devuelven respuestas de error consistentes:
+La búsqueda devuelve `results` junto con `page`, `per_page`, `total_groups`, `total_torrents` y `has_more`. `per_page` vale 16 por defecto y se limita a 50. La paginación se aplica a los grupos después de consultar y procesar la respuesta de Prowlarr; no reduce la cantidad solicitada a Prowlarr. `PROWLARR_SEARCH_LIMIT` controla esa cantidad (500 por defecto; 0 significa sin límite).
+
+### Formato de errores
+
+Los endpoints devuelven JSON en caso de error. `/api/search` incluye además `error_detail` con un código y un mensaje; los demás endpoints pueden devolver solo `error`. Por ejemplo:
+
 ```json
 {
   "error": "Mensaje legible del error",
@@ -145,6 +131,16 @@ Todos los endpoints devuelven respuestas de error consistentes:
   }
 }
 ```
+
+## 🧩 Arquitectura y pruebas
+
+- `app.py` configura Flask, extensiones y cabeceras; `routes/` contiene los blueprints HTTP.
+- `services/` implementa las integraciones y el procesamiento; `utils/` contiene validadores y lógica compartida.
+- `templates/index.html` sirve la interfaz y `static/js/app.js` implementa la lógica del navegador.
+- La caché y los límites de peticiones pueden usar Redis mediante `REDIS_URL`; sin Redis funcionan en memoria y no se comparten entre procesos.
+- Ejecuta las pruebas con `python -m pytest`.
+
+La arquitectura, configuración y comportamiento detallados están descritos en [`spec.md`](spec.md).
 
 ## 📸 Capturas de Pantalla
 

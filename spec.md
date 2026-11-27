@@ -1,91 +1,81 @@
+# Especificación técnica vigente: Media Tracker
 
-\# ESPECIFICACIÓN TÉCNICA DE IMPLEMENTACIÓN: MEDIA TRACKER
+Este documento describe la implementación actual del repositorio. La guía de instalación para usuarios está en [README.md](README.md); las variables de entorno completas y sus valores iniciales están en [.env.example](.env.example).
 
-\#\# 1\. Arquitectura y Stack Tecnológico  
-\* **\*\*Backend:\*\*** Flask 3.0.0 (WSGI Server: Waitress 3.0.2).  
-\* **\*\*Caché:\*\*** Flask-Caching 2.3.1 (Estrategia: \`SimpleCache\` en memoria).  
-\* **\*\*Procesamiento:\*\*** parse-torrent-title 2.8.2 (\`PTN\`).  
-\* **\*\*Integraciones:\*\*** Prowlarr API (Búsqueda), TMDB API v3 (Metadatos), OpenSubtitles REST API v1 (Subtítulos), Deluge Web JSON-RPC (Descargas).  
-\* **\*\*Frontend:\*\*** Single Page Application (SPA), HTML5, Tailwind CSS (CDN), Vanilla JS (Fetch API, LocalStorage).
+## 1. Propósito y arquitectura
 
-\---
+Media Tracker es una aplicación Flask que consulta Prowlarr, agrupa releases y enriquece los resultados con metadatos de TMDB. La interfaz se sirve como una página y usa JavaScript vanilla.
 
-\#\# 2\. Estructura de Directorios Exacta  
-El agente debe estructurar el workspace exactamente de la siguiente forma:  
-\`\`\`text  
-media-tracker/  
-├── .gitignore  
-├── README.md  
-├── requirements.txt  
-├── app.py  
-├── app.spec  
-├── assets/  
-│   └── screenshot.png  
-└── templates/  
-    └── index.html
+| Componente | Responsabilidad |
+| --- | --- |
+| `app.py` | Crear la app Flask, configurar extensiones, errores, cabeceras y registrar blueprints. |
+| `routes/search.py` | Validar y atender búsquedas, gestionar caché/concurrencia y paginar grupos. |
+| `routes/subtitles.py` | Exponer la búsqueda y descarga de subtítulos. |
+| `routes/deluge.py` | Validar y enviar magnets o archivos `.torrent` a Deluge. |
+| `services/` | Consultar Prowlarr, TMDB y OpenSubtitles; procesar y agrupar resultados. |
+| `utils/` | Validadores, detección de idioma, deduplicación, metadatos y utilidades de seguridad. |
+| `templates/index.html` | Plantilla HTML de la aplicación. |
+| `static/js/app.js` | Búsqueda, renderizado, filtros, subtítulos, favoritos e historial en el navegador. |
 
-## **3\. Configuración del Entorno (.env)**
+No hay base de datos relacional. Favoritos e historial se guardan en `localStorage`; la caché del servidor y los límites de solicitudes funcionan en memoria si Redis no está disponible, o pueden usar Redis con `REDIS_URL`.
 
-Crear un archivo .env en la raíz con las siguientes variables:
+## 2. Stack y ejecución
 
-Fragmento de código  
-PROWLARR\_URL=http://localhost:9696  
-PROWLARR\_API\_KEY=  
-TMDB\_API\_KEY=  
-DELUGE\_URL=  
-DELUGE\_PASSWORD=  
-OPENSUBTITLES\_API\_KEY=  
-OPENSUBTITLES\_USER=  
-OPENSUBTITLES\_PASSWORD=  
-FLASK\_ENV=production
+- Python 3.10 o superior.
+- Flask 3.1.3, Flask-Caching 2.3.1, Flask-Limiter 3.8.0, Requests 2.33.0, python-dotenv 1.2.2, parse-torrent-title 2.8.2 y Waitress 3.0.2.
+- Redis es opcional; Pytest, pytest-mock y pytest-cov se usan para pruebas.
+- `python app.py` inicia Waitress en modo de producción. `HOST` y `PORT` permiten cambiar la dirección y el puerto; los valores predeterminados son `127.0.0.1` y `5000`.
+- En modo de desarrollo se usa el servidor de Flask con el depurador desactivado.
 
-## **4\. Requisitos de Dependencias (requirements.txt)**
+## 3. Integraciones y flujos
 
-Instalar estrictamente las siguientes dependencias base:
+### Búsqueda
 
-Plaintext  
-Flask==3.0.0  
-Werkzeug==3.1.3  
-Jinja2==3.1.6  
-waitress==3.0.2  
-Flask-Caching==2.3.1  
-requests==2.31.0  
-python-dotenv==1.0.0  
-parse-torrent-title==2.8.2
+`GET /api/search` consulta `services/prowlarr_service.py`, filtra y agrupa releases, intenta resolver metadatos en TMDB y devuelve grupos con sus torrents.
 
-## **5\. Instrucciones Secuenciales de Implementación y Criterios de Verificación**
+Parámetros admitidos: `query`, `category`, `min_size_gb`, `quality_tag`, `hdr`, `hevc`, `sdr_only`, `lang_filter`, `min_bpp`, `sort`, `page` y `per_page`. Los valores y límites aceptados se validan en `utils/validators.py`.
 
-### **Paso 1: Inicialización del Entorno**
+La respuesta incluye `results`, `page`, `per_page`, `total_groups`, `total_torrents` y `has_more`. El valor predeterminado de `per_page` es 16 y el máximo es 50. Esta paginación divide los grupos ya procesados: Prowlarr se consulta antes de paginar y su respuesta se limita con `PROWLARR_SEARCH_LIMIT` (predeterminado 500; `0` significa sin límite). No se implementa paginación incremental de la consulta upstream.
 
-* **Instrucción:** Crear el entorno virtual, instalar requirements.txt y configurar el módulo de carga de variables de entorno (python-dotenv) en app.py. Validar la presencia obligatoria de PROWLARR\_API\_KEY al iniciar.  
-* **Criterio de Verificación:** Al ejecutar python app.py, si PROWLARR\_API\_KEY está vacía, el sistema debe registrar un error crítico en el log (logging.error). Si está presente, el servidor debe iniciar sin excepciones en el puerto 5000\.
+El orden predeterminado prioriza seeders. También hay orden por puntuación técnica, año y título. Las claves de búsqueda se almacenan en caché durante cinco minutos. La resolución de metadatos TMDB usa caché de 24 horas y limita las resoluciones por búsqueda.
 
-### **Paso 2: Endpoint de Búsqueda Base (/api/search)**
+### Subtítulos
 
-* **Instrucción:** Crear la ruta GET /api/search que acepte los parámetros query, category, min\_size\_gb, quality\_tag, hdr y hevc. Configurar requests.get hacia la API de Prowlarr (/api/v1/search) con un timeout estricto de 160 segundos para mitigar demoras de FlareSolverr.  
-* **Criterio de Verificación:** Una petición HTTP manual a http://localhost:5000/api/search?query=test debe retornar un JSON con código de estado 200 OK conteniendo la lista de resultados mapeados desde Prowlarr, o 503/502 controlados si el servicio destino está caído.
+- `GET /api/subtitles/search?tmdb_id=...&media_type=movie|tv&season=...&episode=...` consulta OpenSubtitles en español (`es`). Solo las respuestas exitosas se cachean.
+- `GET /api/subtitles/download?file_id=...` obtiene el enlace de descarga. El token se conserva en caché y se vuelve a autenticar si OpenSubtitles lo rechaza.
 
-### **Paso 3: Agrupación Inteligente e Integración de Metadatos (PTN \+ TMDB)**
+### Deluge
 
-* **Instrucción:** Implementar la función get\_tmdb\_info protegida por @cache.memoize(timeout=86400). Usar PTN.parse() para extraer el título limpio y el año de cada torrent. Agrupar los torrents en un diccionario cuya clave sea el ID de TMDB (si existe) o una clave local estandarizada ({titulo}\_{año}\_{es\_tv}). Marcar is\_full\_season=True en series si se detecta un pack de temporada completa. Ordenar los torrents internos por is\_full\_season y seeders de forma descendente.  
-* **Criterio de Verificación:** Buscar un término con múltiples versiones. El JSON resultante debe consolidar los diferentes torrents bajo una estructura unificada de grupos (group\_info y lista de torrents), inyectando el póster oficial y la sinopsis en español.
+`POST /api/deluge/add` recibe JSON con `magnet`. Acepta un URI magnet o una URL HTTP(S) que redirija a un magnet o a un archivo `.torrent` válido; después envía el contenido a Deluge mediante JSON-RPC. El acceso desde la interfaz usa un token aleatorio por sesión. `API_SECRET_TOKEN` permite configurar protección adicional para el endpoint.
 
-### **Paso 4: Cliente de Descargas (Deluge JSON-RPC)**
+## 4. Configuración
 
-* **Instrucción:** Crear la ruta POST /api/deluge/add que reciba un objeto JSON con la clave magnet. Implementar un flujo con requests.Session() que ejecute el método RPC auth.login utilizando DELUGE\_PASSWORD. Si el enlace no empieza con magnet:, resolver los redireccionamientos HTTP de Prowlarr y codificar el archivo .torrent resultante en Base64 para enviarlo mediante core.add\_torrent\_file. Si es un magnet directo, usar core.add\_torrent\_magnet.  
-* **Criterio de Verificación:** Enviar un POST válido a /api/deluge/add. La respuesta debe ser 200 OK con {"message": "Añadido exitosamente a Deluge."} y el torrent debe aparecer listado en la interfaz de Deluge de forma inmediata.
+Los valores predeterminados y las variables disponibles están en `.env.example`. Consideraciones principales:
 
-### **Paso 5: Módulo de Subtítulos (OpenSubtitles REST API v1)**
+| Variable | Comportamiento |
+| --- | --- |
+| `PROWLARR_URL` | URL base de Prowlarr; predeterminada `http://localhost:9696`. |
+| `PROWLARR_API_KEY` | Necesaria para búsquedas. Si falta, la aplicación registra un error y las búsquedas fallan; no impide que el servidor arranque. |
+| `PROWLARR_SEARCH_LIMIT` | Máximo de resultados solicitados a Prowlarr; predeterminado 500, rango aceptado 0–2000. |
+| `PROWLARR_TIMEOUT` | Timeout de la consulta; predeterminado 300 segundos, rango aceptado 10–600. |
+| `TMDB_API_KEY`, `TMDB_MAX_RESOLUTIONS` | Metadatos opcionales; se permiten hasta 40 resoluciones por búsqueda de forma predeterminada. |
+| `OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USER`, `OPENSUBTITLES_PASSWORD` | Búsqueda y descarga de subtítulos. |
+| `DELUGE_URL`, `DELUGE_PASSWORD` | Conexión con Deluge Web UI. |
+| `REDIS_URL` | Redis opcional para caché y rate limiting compartidos/persistentes; si no está disponible se usa almacenamiento en memoria. |
+| `SECRET_KEY` | Clave de firma de sesiones. El valor de desarrollo predeterminado genera una advertencia; configurar una clave propia antes de exponer la app. |
+| `API_SECRET_TOKEN` | Protección adicional opcional para Deluge. La aplicación advierte si está vacío. |
+| `SSRF_ALLOW_PRIVATE_TARGETS` | Permite destinos privados/loopback por defecto para servicios locales; puede desactivarse. |
 
-* **Instrucción:** Implementar GET /api/subtitles/search?tmdb\_id=... apuntando a api.opensubtitles.com/api/v1/subtitles filtrando por lenguajes es,es-mx. Implementar GET /api/subtitles/download?file\_id=... que obtenga un token persistente mediante el endpoint /api/v1/login utilizando las credenciales del .env y retorne el enlace de descarga final (link). Añadir obligatoriamente la cabecera User-Agent: RastreadorTorrents/1.0 en todas las peticiones.  
-* **Criterio de Verificación:** Invocar el endpoint de búsqueda con un ID válido de TMDB. Debe retornar la lista de archivos de subtítulos disponibles con sus metadatos (file\_id, language, ratings). Invocar el endpoint de descarga debe devolver un enlace directo de descarga de OpenSubtitles.
+## 5. Límites, caché y seguridad de transporte
 
-### **Paso 6: Interfaz de Usuario Monopágina (templates/index.html)**
+- Rate limits por IP: búsqueda, 60 solicitudes por minuto; búsqueda/descarga de subtítulos y envío a Deluge, 10 por minuto cada ruta.
+- Si Redis no se configura o no responde, los rate limits y la caché no se comparten entre procesos y se pierden al reiniciar.
+- La deduplicación de búsquedas idénticas en curso usa eventos en memoria del proceso; Redis no coordina ese lock, por lo que varios workers pueden repetir una consulta simultánea.
+- La aplicación establece Content Security Policy y otras cabeceras HTTP de seguridad.
+- Las descargas de `.torrent` validan destinos y redirecciones, limitan el tamaño del archivo y comprueban que el contenido tenga formato bencode de torrent.
 
-* **Instrucción:** Construir una interfaz oscura basada en Tailwind CSS. Configurar filtros avanzados dinámicos de categoría, tamaño, idiomas locales (Latino, Castellano, Sub, Otros) y etiquetas especiales (HDR, HEVC). Implementar lógica Vanilla JS para procesar el formulario de forma asíncrona, capturar errores de red con reintentos automáticos (fetchWithRetry), renderizar tarjetas interactivas expandibles (\<details\>) con paginación manual por lotes (16 resultados por página) y persistir la colección de favoritos en el objeto localStorage bajo la clave mt\_favorites.  
-* **Criterio de Verificación:** Al realizar una búsqueda, la interfaz debe mostrar un spinner de carga, ocultar los errores previos y renderizar exactamente un máximo de 16 tarjetas. Presionar "Cargar Más" debe anexar el siguiente lote de resultados sin reconstruir el DOM existente. Al recargar la página, los elementos guardados en "Mi Colección Guardada" deben mantenerse intactos.
+## 6. Distribución y pruebas
 
-### **Paso 7: Empaquetamiento de Distribución (app.spec)**
-
-* **Instrucción:** Configurar el archivo de especificación de PyInstaller app.spec para empaquetar la aplicación en modo consola. Declarar explícitamente la inclusión de las carpetas estáticas en el parámetro datas=\[('templates', 'templates'), ('assets', 'assets')\] e inyectar de forma forzada los módulos dinámicos dentro de hiddenimports=\['flask\_caching', 'PTN'\].  
-* **Criterio de Verificación:** Ejecutar el comando pyinstaller app.spec. El proceso debe finalizar con código de salida 0 sin advertencias de dependencias críticas ausentes, generando un archivo ejecutable funcional dentro de la carpeta de distribución dist/.
+- `app.spec` incluye `templates/`, `assets/` y `static/`, además de los imports dinámicos requeridos por PyInstaller.
+- Ejecutar pruebas: `python -m pytest`.
+- Crear el ejecutable: `python -m PyInstaller app.spec --noconfirm`.
